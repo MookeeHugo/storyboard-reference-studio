@@ -1,8 +1,6 @@
-/**
- * Center panel: the viewer. For a video — an HTML5 player with a custom
- * transport (frame step, scrub bar with draggable IN/OUT handles, time
- * readout), a Bookmark-frame button, and Auto-board (scene / interval / count
- * extraction into board frames). For an image — shown directly with Add to board.
+﻿/**
+ * Center panel: source viewer. Videos can be scrubbed, marked, and auto-boarded;
+ * images can be sent directly to the reference board.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -25,10 +23,10 @@ function ImageViewer({ media }: { media: MediaItem }): JSX.Element {
   const toast = useStore((s) => s.toast)
   const folder = useStore((s) => s.projectFolder)
   const onAdd = useCallback(async () => {
-    addFrame(media.id, 0, media.name.replace(/\.[^.]+$/, '').toUpperCase().slice(0, 40))
+    addFrame(media.id, 0, media.name.replace(/\.[^.]+$/, '').slice(0, 40))
     const json = currentProjectJson()
     if (json && folder) await window.sbr.saveProject(folder, json)
-    toast('Added image to the board.', 'success')
+    toast('已把图片加入参考板。', 'success')
   }, [media, addFrame, toast, folder])
   return (
     <div className="viewer">
@@ -36,7 +34,7 @@ function ImageViewer({ media }: { media: MediaItem }): JSX.Element {
       <div className="transport">
         <span className="time">{media.width}×{media.height}</span>
         <div style={{ flex: 1 }} />
-        <button className="btn small primary" onClick={onAdd}>＋ Add to board</button>
+        <button className="btn small primary" onClick={onAdd}>＋ 加入参考板</button>
       </div>
     </div>
   )
@@ -61,7 +59,7 @@ function VideoViewer({ media }: { media: MediaItem }): JSX.Element {
     setInS(0)
     setOutS(media.durationS ?? 0)
     setTime(0)
-  }, [media.id])
+  }, [media.id, media.durationS])
 
   const step = useCallback((frames: number) => {
     const v = videoRef.current
@@ -85,13 +83,12 @@ function VideoViewer({ media }: { media: MediaItem }): JSX.Element {
 
   const bookmark = useCallback(async () => {
     const t = videoRef.current?.currentTime ?? time
-    addFrame(media.id, t, `SHOT @ ${fmt(t)}`)
+    addFrame(media.id, t, `参考帧 @ ${fmt(t)}`)
     const json = currentProjectJson()
     if (json && folder) await window.sbr.saveProject(folder, json)
-    toast(`Bookmarked frame at ${fmt(t)}.`, 'success')
+    toast(`已标记参考帧：${fmt(t)}`, 'success')
   }, [media.id, time, addFrame, toast, folder])
 
-  // Expose transport intent to the global keyboard map.
   useEffect(() => {
     const win = window as unknown as Record<string, unknown>
     win.__sbrTransport = {
@@ -158,43 +155,31 @@ function VideoViewer({ media }: { media: MediaItem }): JSX.Element {
         ) : null}
       </div>
       <div className="transport">
-        <button className="btn small" title="Frame back (←)" onClick={() => step(-1)}>◀|</button>
-        <button className="btn small" onClick={togglePlay} title="Play/Pause (Space)">
+        <button className="btn small" title="上一帧（←）" onClick={() => step(-1)}>◀|</button>
+        <button className="btn small" onClick={togglePlay} title="播放/暂停（空格）">
           {playing ? '❚❚' : '▶'}
         </button>
-        <button className="btn small" title="Frame forward (→)" onClick={() => step(1)}>|▶</button>
+        <button className="btn small" title="下一帧（→）" onClick={() => step(1)}>|▶</button>
         <span className="time">{fmt(time)} / {fmt(dur)} · {Math.round(fps)}fps</span>
         <div className="scrub" ref={scrubRef} onMouseDown={(e) => seekFromClientX(e.clientX)}>
           <div className="scrub-track" />
           <div className="scrub-inout" style={{ left: `${(inS / dur) * 100}%`, width: `${((outS - inS) / dur) * 100}%` }} />
           <div className="scrub-fill" style={{ width: `${(time / dur) * 100}%` }} />
           <div className="scrub-playhead" style={{ left: `${(time / dur) * 100}%` }} />
-          <div className="scrub-handle in" style={{ left: `${(inS / dur) * 100}%` }} onMouseDown={dragHandle('in')} title="IN (I)" />
-          <div className="scrub-handle out" style={{ left: `${(outS / dur) * 100}%` }} onMouseDown={dragHandle('out')} title="OUT (O)" />
+          <div className="scrub-handle in" style={{ left: `${(inS / dur) * 100}%` }} onMouseDown={dragHandle('in')} title="入点（I）" />
+          <div className="scrub-handle out" style={{ left: `${(outS / dur) * 100}%` }} onMouseDown={dragHandle('out')} title="出点（O）" />
         </div>
-        <button className="btn small" onClick={() => setInS(time)} title="Set IN (I)">IN</button>
-        <button className="btn small" onClick={() => setOutS(time)} title="Set OUT (O)">OUT</button>
-        <button className="btn small primary" onClick={bookmark} title="Bookmark frame (B)">📌 Bookmark</button>
-        <button className="btn small" onClick={() => setAutoOpen(true)} title="Auto-board section">▦ Auto-board</button>
+        <button className="btn small" onClick={() => setInS(time)} title="设置入点（I）">入点</button>
+        <button className="btn small" onClick={() => setOutS(time)} title="设置出点（O）">出点</button>
+        <button className="btn small primary" onClick={bookmark} title="标记当前帧（B）">📌 标记参考</button>
+        <button className="btn small" onClick={() => setAutoOpen(true)} title="按段落自动抽取参考帧">▦ 自动抽帧</button>
       </div>
-      {autoOpen && (
-        <AutoBoardModal media={media} inS={inS} outS={outS} onClose={() => setAutoOpen(false)} />
-      )}
+      {autoOpen && <AutoBoardModal media={media} inS={inS} outS={outS} onClose={() => setAutoOpen(false)} />}
     </div>
   )
 }
 
-function AutoBoardModal({
-  media,
-  inS,
-  outS,
-  onClose
-}: {
-  media: MediaItem
-  inS: number
-  outS: number
-  onClose: () => void
-}): JSX.Element {
+function AutoBoardModal({ media, inS, outS, onClose }: { media: MediaItem; inS: number; outS: number; onClose: () => void }): JSX.Element {
   const [mode, setMode] = useState<'scene' | 'interval' | 'count'>('scene')
   const [threshold, setThreshold] = useState(0.35)
   const [everyS, setEveryS] = useState(2)
@@ -220,18 +205,17 @@ function AutoBoardModal({
             : { kind: 'count', n: count }
       const res = await window.sbr.extractRange(abs, inS, outS, rangeMode, outDir)
       if (!res.ok) {
-        toast(`Auto-board failed: ${res.error ?? 'no frames'}`, 'error')
+        toast(`自动抽帧失败：${res.error ?? '没有抽到画面'}`, 'error')
         setRunning(false)
         return
       }
       for (const { time, path } of res.frames) {
-        const frame = addFrame(media.id, time, `SHOT @ ${fmt(time)}`)
-        // The extractRange output is already a full-res PNG we can reuse.
+        const frame = addFrame(media.id, time, `参考帧 @ ${fmt(time)}`)
         setStill(frame.id, { path, width: media.width, height: media.height })
       }
       const json = currentProjectJson()
       if (json) await window.sbr.saveProject(folder, json)
-      toast(`Added ${res.frames.length} frames to the board.`, 'success')
+      toast(`已添加 ${res.frames.length} 条参考到参考板。`, 'success')
       onClose()
     } finally {
       setRunning(false)
@@ -241,38 +225,36 @@ function AutoBoardModal({
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <h2>Auto-board section</h2>
+        <h2>自动抽取段落</h2>
         <div className="modal-sub">
-          Extract frames from {fmt(inS)} to {fmt(outS)} and add them all to the board.
+          从 {fmt(inS)} 到 {fmt(outS)} 抽取参考帧，并加入底部参考板。
         </div>
         <div className="seg" style={{ marginBottom: 14 }}>
-          <button className={mode === 'scene' ? 'active' : ''} onClick={() => setMode('scene')}>Scene detect</button>
-          <button className={mode === 'interval' ? 'active' : ''} onClick={() => setMode('interval')}>Every N sec</button>
-          <button className={mode === 'count' ? 'active' : ''} onClick={() => setMode('count')}>N frames</button>
+          <button className={mode === 'scene' ? 'active' : ''} onClick={() => setMode('scene')}>场景切点</button>
+          <button className={mode === 'interval' ? 'active' : ''} onClick={() => setMode('interval')}>每 N 秒</button>
+          <button className={mode === 'count' ? 'active' : ''} onClick={() => setMode('count')}>固定数量</button>
         </div>
         {mode === 'scene' && (
           <div className="field">
-            <label>Sensitivity — lower finds more cuts ({threshold.toFixed(2)})</label>
+            <label>灵敏度：数值越低，识别到的切点越多（{threshold.toFixed(2)}）</label>
             <input type="range" min={0.1} max={0.6} step={0.05} value={threshold} onChange={(e) => setThreshold(Number(e.target.value))} />
           </div>
         )}
         {mode === 'interval' && (
           <div className="field">
-            <label>Every N seconds</label>
+            <label>每隔 N 秒抽取</label>
             <input type="number" min={0.2} step={0.2} value={everyS} onChange={(e) => setEveryS(Number(e.target.value))} />
           </div>
         )}
         {mode === 'count' && (
           <div className="field">
-            <label>Number of evenly-spaced frames</label>
+            <label>均匀抽取数量</label>
             <input type="number" min={1} step={1} value={count} onChange={(e) => setCount(Number(e.target.value))} />
           </div>
         )}
         <div className="modal-actions">
-          <button className="btn" onClick={onClose} disabled={running}>Cancel</button>
-          <button className="btn primary" onClick={run} disabled={running}>
-            {running ? 'Extracting…' : 'Extract'}
-          </button>
+          <button className="btn" onClick={onClose} disabled={running}>取消</button>
+          <button className="btn primary" onClick={run} disabled={running}>{running ? '抽取中…' : '开始抽取'}</button>
         </div>
       </div>
     </div>
@@ -286,12 +268,7 @@ export function Viewer(): JSX.Element {
   const selectedFrameId = useStore((s) => s.selectedFrameId)
   const selectedFrame = useStore((s) => s.frame(selectedFrameId))
 
-  // Frame mode: the center stage shows the selected board card's full-res still
-  // (crop overlay, guides, annotations). Clicking the clip in the bin or "back
-  // to clip" returns to the video/image viewer.
-  if (viewMode === 'frame' && selectedFrame) {
-    return <FrameStage frame={selectedFrame} />
-  }
+  if (viewMode === 'frame' && selectedFrame) return <FrameStage frame={selectedFrame} />
 
   if (!media) {
     return (
@@ -299,7 +276,7 @@ export function Viewer(): JSX.Element {
         <div className="viewer-stage">
           <div className="viewer-empty">
             <div style={{ fontSize: 34 }}>🎬</div>
-            Select a clip or image from the bin to start pulling reference frames.
+            从左侧素材栏选择视频或图片，开始抽取镜头参考。
           </div>
         </div>
       </div>

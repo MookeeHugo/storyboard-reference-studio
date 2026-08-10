@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Center-stage view of the selected board frame: its full-res still with the
  * crop overlay (generalized CropEditor), rule-of-thirds / action-safe guides,
  * an annotation layer (draw arrows + text), and a "back to clip" affordance.
@@ -128,7 +128,7 @@ export function FrameStage({ frame }: { frame: Frame }): JSX.Element {
   return (
     <div className="viewer">
       <div className="viewer-stage frame-stage" ref={boxRef}>
-        {stillUrl ? <img src={stillUrl} alt={frame.label} /> : <div className="viewer-empty">Extracting still…</div>}
+        {stillUrl ? <img src={stillUrl} alt={frame.label} /> : <div className="viewer-empty">正在生成参考帧…</div>}
 
         {/* Annotation display layer (behind the draw-capture layer). */}
         {svg && (
@@ -197,7 +197,7 @@ export function FrameStage({ frame }: { frame: Frame }): JSX.Element {
                 key={a.id}
                 className={`anno-hit ${selectedAnnotationId === a.id ? 'sel' : ''}`}
                 style={{ left: rect.left + p.x * rect.w - 9, top: rect.top + p.y * rect.h - 9 }}
-                title={a.kind === 'text' ? 'Text annotation' : 'Arrow annotation'}
+                title={a.kind === 'text' ? '文字标注' : '箭头标注'}
                 onClick={() => selectAnnotation(a.id)}
                 onDoubleClick={() => {
                   if (a.kind === 'text') setEditing(a.id)
@@ -208,21 +208,22 @@ export function FrameStage({ frame }: { frame: Frame }): JSX.Element {
       </div>
 
       <div className="transport">
-        <span className="time">{media?.name ?? 'frame'}</span>
+        <span className="time">{media?.name ?? '参考帧'}</span>
         <div style={{ flex: 1 }} />
         {frame.crop && (
           <button
             className={`btn small ${guidesOn ? 'primary' : ''}`}
             onClick={() => setGuidesOn(!guidesOn)}
-            title="Toggle rule-of-thirds + action-safe guides (G)"
+            title="显示 / 隐藏三分线与安全框（G）"
           >
-            ⊞ Guides
+            ⊞ 构图线
           </button>
         )}
-        <button className="btn small" onClick={() => setViewMode('clip')} title="Back to the clip">
-          ↩ Back to clip
+        <button className="btn small" onClick={() => setViewMode('clip')} title="回到素材">
+          ↩ 回到素材
         </button>
       </div>
     </div>
   )
 }
+

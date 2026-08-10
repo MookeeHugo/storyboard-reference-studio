@@ -58,8 +58,8 @@ app.whenReady().then(() => {
   app.setAboutPanelOptions({
     applicationName: 'Storyboard Reference Studio',
     applicationVersion: app.getVersion(),
-    credits: 'Created by Sam Wasserman — wassermanproductions.com · wasserman.ai',
-    copyright: 'Apache-2.0 — keep this credit when using or forking.'
+    credits: 'BloomReel Team — BloomReel AI Filmmaker Studio',
+    copyright: 'BloomReel Proprietary — third-party components retain their own notices.'
   })
   createWindow()
   void startControlServer(() => mainWindow)
@@ -239,7 +239,7 @@ ipcMain.handle('shell:showFolder', async (_e, path: string) => {
   shell.showItemInFolder(path)
 })
 
-const EXTERNAL_LINK_ALLOWLIST = new Set(['wassermanproductions.com', 'wasserman.ai', 'github.com'])
+const EXTERNAL_LINK_ALLOWLIST = new Set(['github.com'])
 
 ipcMain.handle('shell:openExternal', async (_e, url: string) => {
   const parsed = new URL(url)

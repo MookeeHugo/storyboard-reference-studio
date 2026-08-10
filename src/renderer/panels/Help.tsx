@@ -1,7 +1,4 @@
-/**
- * Help overlay: quick-start cards, a searchable "How do I…?" list, and the
- * keyboard shortcut reference.
- */
+﻿/** Help overlay: Chinese quick-start and workflow reference. */
 
 import { useMemo, useState } from 'react'
 import { useStore } from '../store'
@@ -9,41 +6,34 @@ import { Credits } from '../App'
 import logoUrl from '../assets/logo.png'
 
 const CARDS = [
-  { emoji: '📥', title: 'Import reference', body: 'Import videos, images, or an audio scratch track into the bin, or paste a screenshot straight from the clipboard.' },
-  { emoji: '🎞️', title: 'Pull frames', body: 'Scrub a clip and Bookmark frames, or Auto-board a section by scene cuts, every N seconds, or a fixed count.' },
-  { emoji: '✂️', title: 'Reframe & annotate', body: 'Select a card to reframe it on the stage with rule-of-thirds + action-safe guides, and draw camera-move arrows or action text.' },
-  { emoji: '🎬', title: 'Present & export', body: 'Play the board as an animatic in Present mode, then export a board package, an animatic MP4, a PDF storyboard, or a shot-list CSV.' }
+  { emoji: '📥', title: '导入参考', body: '导入视频、图片或临时声音轨，也可以直接粘贴截图作为镜头参考。' },
+  { emoji: '🎞️', title: '抽取画面', body: '在视频里拖动时间线，标记关键帧；也可以按切点、间隔或数量自动抽帧。' },
+  { emoji: '✂️', title: '拆解构图', body: '选中参考卡后调整画幅、标注动线，并记录景别、机位、光线、色彩和情绪。' },
+  { emoji: '🎬', title: '协作导出', body: '播放参考板做动态预览，并导出参考包、镜头清单、PDF 或动态分镜。' }
 ]
 
 const TASKS = [
-  { q: 'How do I add a frame from a video?', a: 'Open the clip, scrub to the moment, and click 📌 Bookmark (or press B). It becomes a board card.' },
-  { q: 'How do I auto-detect shot changes?', a: 'Click ▦ Auto-board, choose Scene detect, and lower the sensitivity slider to find more cuts.' },
-  { q: 'How do I crop to a target aspect?', a: 'Select the board card, pick an aspect under Reframe, and drag the overlay on the still. The crop is applied full-res on export.' },
-  { q: 'How do I generate a prompt?', a: 'Select a card, choose a generator profile, and click ✨ Generate prompt. Edit it in place, then Copy prompt.' },
-  { q: 'What if I have no API key?', a: 'Everything works offline except Generate. Use the Offline template controls to build a prompt scaffold from the frame’s metadata.' },
-  { q: 'How do I prompt the whole board?', a: 'Click Prompt all missing on the board bar. It fills every card that has no prompt yet.' },
-  { q: 'What does Export produce?', a: 'A folder with per-frame NN_label/still.png + prompt.txt, plus prompts.json, contact-sheet.png, and board.md. The Export ▾ menu also makes an animatic MP4, a PDF storyboard, and a shot-list CSV.' },
-  { q: 'How do I set each frame’s duration?', a: 'Select a card and set Duration (s) in the inspector. It drives the animatic hold time and shows as a badge on the card.' },
-  { q: 'How do I play the board?', a: 'Click ▶ Present on the board bar (or press P). Space plays/pauses, arrows step, M toggles the shot strip, Esc exits. A set scratch track plays in sync.' },
-  { q: 'How do I draw camera moves?', a: 'Select a card, open Annotate in the inspector, pick Arrow (A) or Text (T) and a color, then drag or click on the stage. Guides toggle with G. Annotations export onto every still.' },
-  { q: 'How do I fill the shot list?', a: 'Use the Shot section in the inspector — scene, shot, size, angle, lens, movement, transition — then export the shot-list CSV.' },
-  { q: 'How do I add a scratch track?', a: 'Import an mp3/wav/m4a/aac. It appears in the bin; click it to set or unset it as the animatic track.' },
-  { q: 'Where are my files?', a: 'Projects are .sbref folders: project.json plus a media/ folder of copied imports. Exports land in exports/.' }
+  { q: '如何加载内置案例？', a: '点击欢迎页的“加载雨夜灯塔 Demo”，会生成一套完整中文分镜参考板。' },
+  { q: '如何从视频添加一帧？', a: '打开素材，拖到需要的时间点，点击“标记参考”或按 B。' },
+  { q: '如何按镜头语言检索？', a: '在底部参考板搜索框输入景别、场景、情绪、色彩、构图、人物或地点标签。' },
+  { q: '如何自动抽帧？', a: '点击“自动抽帧”，选择场景切点、每 N 秒或固定数量。' },
+  { q: '如何裁切成目标画幅？', a: '选中参考卡，在“构图裁切”里选择 16:9、2.39:1、1:1 等比例并拖动裁切框。' },
+  { q: '没有 API 密钥怎么办？', a: '工具本地优先，导入、整理、保存、筛选都不需要账号。提示词可以用“离线模板”生成草稿。' },
+  { q: '导出参考包包含什么？', a: '每张参考的 still.png、prompt.txt，加上 prompts.json、contact-sheet.png 和 board.md。' },
+  { q: '项目保存在哪里？', a: '项目是本地 .sbref 文件夹，包含 project.json、media、.frames 和 exports，不会上云。' }
 ]
 
 const SHORTCUTS = [
-  { k: 'Space', d: 'Play / pause the clip (or the animatic in Present)' },
-  { k: '← / →', d: 'Step one frame back / forward' },
-  { k: 'I / O', d: 'Set the IN / OUT point of the section' },
-  { k: 'B', d: 'Bookmark the current frame' },
-  { k: 'P', d: 'Present / play the board' },
-  { k: 'A', d: 'Arrow annotation tool' },
-  { k: 'T', d: 'Text annotation tool' },
-  { k: 'G', d: 'Toggle rule-of-thirds + action-safe guides' },
-  { k: 'M', d: 'Toggle the shot strip in Present mode' },
-  { k: '⌘S', d: 'Save the project' },
-  { k: '⌫', d: 'Remove the selected annotation, or the selected card' },
-  { k: '?', d: 'Toggle this help' }
+  { k: 'Space', d: '播放 / 暂停素材或动态分镜' },
+  { k: '← / →', d: '前后一帧或切换参考卡' },
+  { k: 'I / O', d: '设置视频入点 / 出点' },
+  { k: 'B', d: '标记当前参考帧' },
+  { k: 'P', d: '播放参考板' },
+  { k: 'A', d: '箭头标注工具' },
+  { k: 'T', d: '文字标注工具' },
+  { k: 'G', d: '显示 / 隐藏构图安全线' },
+  { k: 'Ctrl / ⌘ + S', d: '保存当前项目' },
+  { k: '?', d: '打开 / 关闭帮助' }
 ]
 
 export function HelpOverlay(): JSX.Element | null {
@@ -62,11 +52,11 @@ export function HelpOverlay(): JSX.Element | null {
     <div className="help-backdrop" onClick={() => setHelpOpen(false)}>
       <div className="help-modal" onClick={(e) => e.stopPropagation()}>
         <div className="help-header">
-          <h2>Help & quick start</h2>
-          <button className="btn small" onClick={() => setHelpOpen(false)}>Close</button>
+          <h2>帮助与快速上手</h2>
+          <button className="btn small" onClick={() => setHelpOpen(false)}>关闭</button>
         </div>
         <div className="help-body">
-          <div className="help-section-title">Quick start</div>
+          <div className="help-section-title">快速流程</div>
           <div className="help-cards">
             {CARDS.map((c) => (
               <div className="help-card" key={c.title}>
@@ -77,25 +67,16 @@ export function HelpOverlay(): JSX.Element | null {
             ))}
           </div>
 
-          <div className="help-section-title">How do I…?</div>
-          <input
-            className="help-search"
-            placeholder="Search tasks…"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-          {filtered.length === 0 ? (
-            <div className="hint">No matching tasks.</div>
-          ) : (
-            filtered.map((t) => (
-              <div className="help-task" key={t.q}>
-                <div className="help-task-q">{t.q}</div>
-                <div className="help-task-a">{t.a}</div>
-              </div>
-            ))
-          )}
+          <div className="help-section-title">常见问题</div>
+          <input className="help-search" placeholder="搜索：构图、标签、导出、提示词…" value={query} onChange={(e) => setQuery(e.target.value)} />
+          {filtered.length === 0 ? <div className="hint">没有匹配的问题。</div> : filtered.map((t) => (
+            <div className="help-task" key={t.q}>
+              <div className="help-task-q">{t.q}</div>
+              <div className="help-task-a">{t.a}</div>
+            </div>
+          ))}
 
-          <div className="help-section-title" style={{ marginTop: 24 }}>Shortcuts</div>
+          <div className="help-section-title" style={{ marginTop: 24 }}>快捷键</div>
           {SHORTCUTS.map((s) => (
             <div className="help-kbd-row" key={s.k}>
               <div className="help-kbd-keys"><span className="help-kbd">{s.k}</span></div>
@@ -103,14 +84,12 @@ export function HelpOverlay(): JSX.Element | null {
             </div>
           ))}
 
-          <div className="help-section-title" style={{ marginTop: 24 }}>About</div>
+          <div className="help-section-title" style={{ marginTop: 24 }}>关于</div>
           <div className="help-about">
             <img src={logoUrl} alt="Storyboard Reference Studio" className="help-about-logo" />
             <div>
-              <div className="help-about-name">Storyboard Reference Studio</div>
-              <div className="help-about-tag">
-                Turn any reference imagery into stills + image-generator prompts.
-              </div>
+              <div className="help-about-name">分镜参考工作室</div>
+              <div className="help-about-tag">中文分镜参考、镜头图像资料库与视觉风格检索工作台。</div>
               <Credits />
             </div>
           </div>

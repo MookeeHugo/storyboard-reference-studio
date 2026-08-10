@@ -6,10 +6,10 @@
 # browser-downloaded unsigned apps (terminal downloads aren't quarantined).
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/wassermanproductions/storyboard-reference-studio/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/MookeeHugo/storyboard-reference-studio/main/install.sh | bash
 set -euo pipefail
 
-REPO="wassermanproductions/storyboard-reference-studio"
+REPO="bloomreel/storyboard-reference-studio"
 
 if [ "$(uname -m)" != "arm64" ]; then
   echo "Storyboard Reference Studio for macOS currently ships for Apple Silicon (M1–M4) only." >&2

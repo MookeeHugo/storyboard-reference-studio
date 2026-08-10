@@ -1,235 +1,196 @@
-<div align="center">
+# Storyboard Reference Studio｜分镜参考工作室
 
-<img src="docs/images/logo.png" alt="Storyboard Reference Studio" width="340" />
+面向中文影视创作者的本地优先工作台，用来整理分镜参考、镜头图像资料库、视觉风格标签和 AI 图像/视频提示词。
 
-<p align="center">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="License: Apache 2.0"></a>
-  <a href="../../releases/latest"><img src="https://img.shields.io/github/v/release/wassermanproductions/storyboard-reference-studio?include_prereleases&label=download" alt="Latest release"></a>
-  <img src="https://img.shields.io/badge/platforms-macOS-2f7bf6" alt="Platforms">
-  <a href="https://ko-fi.com/samwasserman"><img src="https://img.shields.io/badge/Ko--fi-support%20Sam%20Wasserman-ff5e5b?logo=kofi&logoColor=white" alt="Support Sam Wasserman on Ko-fi"></a>
-</p>
+当前版本已迁移到 **Tauri 2 + React 18 + Vite**，默认中文界面，Windows 可直接构建 release exe、MSI 和 NSIS 安装包。
 
-# STORYBOARD **REFERENCE**
+## 产品定位
 
-**Turn any reference imagery into stills + image-generator prompts — recreate any framing in your generator of choice.**
+Storyboard Reference Studio 不是剪辑软件，而是一个“镜头参考整理台”：
 
-![Storyboard Reference Studio — a working reference board with shot metadata, camera-move annotations, and per-frame prompts](docs/images/hero.png)
+- **分镜参考板**：从视频、剧照、手机素材或美术参考中抽出关键画面，形成可排序的参考卡片。
+- **镜头图像资料库**：为每张参考记录场次、镜号、景别、机位、焦段、镜头运动、转场和时长。
+- **视觉风格检索工作台**：按场景、镜头类型、构图、光线、色彩、情绪、人物/地点/美术标签筛选参考。
+- **AI 视觉开发提示词**：每张参考可保存图像/视频模型提示词，支持 Midjourney、Flux、GPT-Image、Nano Banana、SDXL 和通用描述。
+- **本地导出**：输出参考包、动态分镜 MP4、2×3 图文 PDF 分镜页和镜头清单 CSV。
 
-</div>
+## 内置中文 Demo
 
----
+欢迎页点击 **“加载雨夜灯塔 Demo”**，会一键生成完整中文参考板：
 
-Image generators give you far better results when you show them exactly the framing you want. Storyboard Reference Studio is the fastest path from *"I love how this shot is composed"* to a **still + a generator-ready prompt** that recreates its shot size, angle, blocking, lighting, and mood. Drop in a movie clip, phone footage, a pulled still, or a mood image; pull the frames that matter; and export a storyboard package: full-res stills (reframed as you set) and a prompt per frame, phrased for **Midjourney, Flux, GPT-Image, Nano Banana, SDXL, or a generic target.**
+- 主题：**雨夜灯塔视觉参考板**
+- 镜头参考：10 条
+- 场景覆盖：外景沿海公路、皮卡车内、灯塔外部入口、灯塔楼梯井、灯室、开阔海面、灯室控制台
+- 标签：50 个以上唯一中文标签
+- 每条参考包含：中文标题、镜头类型、构图、光线、色彩、情绪、用途、对应场景/镜头、AI 图像/视频提示词备注
 
-It is deliberately **not** an editor. Pulling reference frames, reframing them, and writing precise per-generator prompts is the whole product. The whole app runs offline — the only thing that needs credentials is the one-click Claude-vision prompt (and there's a built-in offline template mode for that too).
-
-- 🎞️ **Auto-board scene detection** — point it at a section and it finds the cuts, pulling one frame per shot. Or every N seconds, or N evenly-spaced frames.
-- ✂️ **Reframe on the stage** — select a card to recompose it full-size with rule-of-thirds + action-safe guides and a live resolution readout; reframe to 16:9, 9:16, 1:1, 4:3, or 2.39:1, applied full-res on export.
-- ↗️ **Camera-move annotations** — draw arrows and action text over a frame; they render on the board, in Present mode, and composited onto every exported still.
-- 🎬 **Animatic + Present mode** — give each frame a hold time, play the board full-screen (with an optional audio scratch track), and export a **1920×1080 animatic MP4**.
-- 📄 **Every deliverable** — a board package, an **animatic MP4**, a **PDF storyboard** (cover + 2×3 grid), and a **shot-list CSV** (scene, shot, size, angle, lens, movement, transition, duration).
-- 🎯 **6 generator profiles** — each phrases the prompt the way its model likes it, including Midjourney's exact trailing `--ar` (from the frame's crop) and `--style raw`. No API key? An offline template builds a scaffold from the frame's metadata.
-- 🤖 **Agent-drivable** — a bundled MCP server lets Claude Code, Codex, or any MCP client build, prompt, annotate, and export the board for you.
-
----
-
-## The 60-second workflow
-
-1. **IMPORT** — drag in videos and images (or paste from the clipboard). They land in a media bin.
-2. **PICK** — for a video: scrub, set an in/out section with draggable handles, and bookmark individual frames — or one-click **Auto-board** the section (scene detect / every N seconds / N frames). Images import as frames directly.
-3. **BOARD** — picked frames become cards on a storyboard strip: reorder by drag, label (`SHOT 1A — HERO ENTERS`), add notes, and reframe each to a target aspect with a draggable crop overlay.
-4. **PROMPT & DIRECT** — one click generates a per-frame prompt via Claude vision — shot size & angle, lens feel, subjects & blocking, environment, lighting, color/mood, style keywords — phrased for your selected generator. Editable in place. Batch **Prompt all missing**. No key? Fill the offline template. Set each frame's shot metadata, hold time, and draw camera-move arrows.
-5. **PRESENT & EXPORT** — press **P** to play the board as an animatic, then pick a deliverable from **Export ▾**: a board package (below), an **animatic MP4**, a **PDF storyboard**, or a **shot-list CSV**. **Export board** writes one folder and reveals it in Finder:
-
-```
-Storyboard/board-2026-07-07-…/
-├── 01_shot-1a-hero-enters/
-│   ├── still.png        # full-res, reframed to the crop you set
-│   └── prompt.txt       # the frame's prompt (or template scaffold)
-├── 02_ext-street-night/
-│   ├── still.png
-│   └── prompt.txt
-├── …
-├── prompts.json         # the whole board, machine-readable
-├── contact-sheet.png    # labelled ffmpeg tile montage of every frame
-└── board.md             # a readable markdown storyboard
-```
-
----
-
-## Screenshot tour
-
-|  |  |
-|---|---|
-| ![Viewer with an in/out range on a clip](docs/images/viewer.png) | ![The frame stage with a reframe crop, guides, and camera-move annotations](docs/images/stage.png) |
-| **Pick** — scrub a clip, pull an in/out range with draggable handles, and bookmark the exact frame. Frame-step with the arrow keys, or Auto-board the whole section by scene cut. | **Reframe & direct** — recompose a frame full-size with rule-of-thirds + action-safe guides, and draw camera-move arrows and action text. Overlays show on the board and composite onto every exported still. |
-| ![Inspector with shot metadata and a filled per-frame prompt](docs/images/inspector.png) | ![Present mode playing the board full-screen with a metadata strip](docs/images/present.png) |
-| **Prompt** — fill the shot list (scene, shot, size, angle, lens, movement, transition), set a hold time, and prompt the frame for your target generator; edit in place or build one offline from the template. | **Present** — play the board full-screen as an animatic with a shot-metadata strip and an optional audio scratch track. Space plays, arrows step, `M` toggles the strip. |
-| ![The Export menu open over the finished board](docs/images/export.png) |  |
-| **Export** — pick a deliverable from **Export ▾**: a board package, an animatic MP4, a PDF storyboard, or a shot-list CSV. Each writes to the project's `exports/` folder and reveals it in Finder. |  |
-
----
-
-## Feature tour
-
-### Auto-board scene detection
-
-Point Auto-board at a clip (or an in/out section) and pick a mode: **Scene detect** runs ffmpeg scene-change detection and pulls one frame per cut — sensitivity is a single slider (lower finds more cuts). **Every N seconds** and **N evenly-spaced frames** are there for footage without hard cuts. Every extracted frame lands on the board as a card with a full-res still already cached.
-
-### Aspect reframing
-
-Any frame can be recomposed to **16:9, 9:16, 1:1, 4:3, or 2.39:1** with a draggable crop overlay that holds the target aspect while you drag its corners. The crop is stored normalized in source space and applied **full-resolution on export** via ffmpeg — the source frame is never touched, and the aspect flows straight into the prompt (e.g. Midjourney's `--ar`).
-
-### 6 generator profiles
-
-Prompts are **phrased per generator**, not one-size-fits-all:
-
-| Profile | How it phrases the prompt |
-|---|---|
-| **Midjourney** | Comma-separated visual phrases, subject → blocking → environment → light → lens, with a trailing `--ar <your crop>` and `--style raw`. |
-| **Flux** | Fluent natural-language sentences, camera and lighting up front. |
-| **GPT-Image** | One detailed, directive paragraph ("Create a … shot showing …"). |
-| **Nano Banana** | A tight scene description + an explicit `Match this framing:` clause. |
-| **SDXL** | Tag-style, keyword/booru ordering with quality tags, no flags. |
-| **Generic** | A clean, tool-agnostic cinematic description. |
-
-The **Midjourney `--ar` is derived from the frame's actual crop** — reframe to 2.39:1 and the prompt ends `--ar 2.39:1 --style raw`; leave it on `free` and no aspect flag is appended. Adding a profile is a single data entry in `src/shared/profiles.ts`.
-
-### Offline mode
-
-The whole app works with no network. The one online action — the **Generate prompt** button (Claude vision, model `claude-opus-4-8`) — degrades gracefully: with no credentials it returns a friendly message and opens the **offline template**, which builds a prompt scaffold from the frame's label, notes, crop aspect, and shot-size / angle / lighting / mood dropdowns, phrased through the same generator profile.
-
-### Deterministic exports
-
-**Export board** writes a self-contained folder: `NN_<label>/still.png` (reframed full-res) + `NN_<label>/prompt.txt` per frame, a machine-readable `prompts.json`, a labelled `contact-sheet.png` tile montage, and a readable `board.md`. Projects themselves are a folder — pretty-printed `project.json` + copied media + a stills cache — so they diff, branch, and reopen crash-safely (60-second autosave).
-
-### Agent control
-
-A bundled **MCP server** lets an AI agent build and prompt the board — import-aware `get_state`, `auto_board`, `set_crop`, `describe_frame`, and `export_board` — the same moves you'd make by hand. See [Agent control](#agent-control-mcp) below.
-
----
-
-## Keyboard shortcuts
-
-| Key | Action |
-|---|---|
-| `Space` | Play / pause the clip (or the animatic in Present) |
-| `← / →` | Step one frame back / forward |
-| `I` / `O` | Set the IN / OUT point of the section |
-| `B` | Bookmark the current frame |
-| `P` | Present / play the board |
-| `A` | Arrow annotation tool |
-| `T` | Text annotation tool |
-| `G` | Toggle rule-of-thirds + action-safe guides |
-| `M` | Toggle the shot strip in Present mode |
-| `⌘S` | Save the project |
-| `⌫` | Remove the selected annotation, or the selected card |
-| `?` | Toggle the in-app help |
-
----
-
-## The suite
-
-Storyboard Reference Studio is the third app in Sam Wasserman's AI-filmmaking suite. Each does one job in the pipeline from *"I can see the shot"* to a generator-ready reference:
-
-- **[Blockout](https://github.com/wassermanproductions/blockout)** — previs: stage a scene in grey-box 3D, choreograph the camera and cast against marks, and export a motion-reference package for video generators.
-- **Motion Previs Studio** — motion reference and camera-move design for shots you're building from scratch.
-- **Storyboard Reference Studio** (this app) — reference: turn *existing* imagery into stills + per-generator prompts to recreate any framing.
-
----
-
-## Install (macOS)
-
-One line — downloads the latest release and installs it, skipping the Gatekeeper "damaged app" false alarm that macOS shows for unsigned downloads:
+## 快速开始
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/wassermanproductions/storyboard-reference-studio/main/install.sh | bash
-```
-
-## Install
-
-**Download** a release DMG (macOS, Apple Silicon) from GitHub Releases, or build from source:
-
-```bash
-git clone https://github.com/wassermanproductions/storyboard-reference-studio
-cd storyboard-reference-studio
 npm install
-npm run dev                    # development, hot reload
-# or
-npm run build && npm start     # production build
+npm run dev
 ```
 
-Requirements: **Node 22+**. **ffmpeg** powers extraction and export — it's bundled via `ffmpeg-static` when packaged, and falls back to a system `ffmpeg` in development (`brew install ffmpeg`).
+如果 5173 被占用，Vite 会自动使用后续空闲端口；`npm run tauri:dev` 也会动态写入匹配的 Tauri devUrl。
 
-The packaged DMG is unsigned and ships with the default Electron icon (a custom logo is coming). On first launch, right-click → Open bypasses Gatekeeper. For wider distribution, set a Developer ID `identity` and notarization in [electron-builder.yml](electron-builder.yml).
 
----
+## 常用命令
 
-## Agent control (MCP)
-
-Point **Claude Code, Codex, or any MCP client** at the bundled MCP server and it can build the board, reframe, prompt, and export — driving the running app. Register it with Claude Code in one line:
+| 命令 | 作用 |
+|---|---|
+| `npm run dev` | 启动前端开发服务 |
+| `npm run build` | 构建前端到 `dist/` |
+| `npm run smoke` | 启动本地前端、加载中文 Demo、检查中文文本/参考卡/标签/筛选/详情面板并截图 |
+| `npm run smoke:tauri` | 启动 Tauri release exe，通过 WebView2 CDP 自动加载 Demo，并用 release sidecar 导出 PDF/MP4/CSV/参考包 |
+| `npm run prepare:ffmpeg` | 从 npm sidecar 包复制 ffmpeg/ffprobe 到 `src-tauri/bin/` 供 Tauri 打包 |
+| `npm run sign:windows` | 对 release exe、MSI 和 NSIS 安装包执行 Windows 签名/验签并输出签名 manifest |
+| `cargo check` | 在 `src-tauri/` 下检查 Rust/Tauri 命令 |
+| `cargo test export_animatic_writes_real_mp4 -- --nocapture` | 验证动态分镜 MP4 真实导出为 1920x1080 |
+| `cargo test export_pdf_writes_storyboard_grid -- --nocapture` | 验证 PDF 导出是真正 2x3 图文分镜页 |
+| `npm run tauri:dev` | 启动 Tauri 开发版，自动避开占用端口 |
+| `npm run tauri:build` | 复制 ffmpeg/ffprobe sidecar，并构建 Windows release exe、MSI 和 NSIS 安装包 |
+## Smoke 验收
 
 ```bash
-claude mcp add storyboard-reference -- node /path/to/storyboard-reference/mcp/storyboard-mcp.mjs
+npm run smoke
 ```
 
-Discovery and auth are automatic — the app writes a localhost-only port + bearer token to `~/.config/storyboard-reference/control.json` on launch, and the zero-dependency bridge reads it.
+smoke 会：
 
-| Tool | Params | Does |
-|---|---|---|
-| `get_state` | — | Project summary: imported media + board frames. **Call first.** |
-| `add_frame` | `mediaId, timeS?, label?` | Add one board frame at a source time. |
-| `auto_board` | `mediaId, startS?, endS?, mode?, threshold?/everyS?/count?` | Extract many frames (scene / interval / count) and add them all. |
-| `set_label` | `frameId, label` | Rename a frame. |
-| `set_crop` | `frameId, aspect?, x?, y?, w?, h?` | Reframe (normalized source coords). |
-| `describe_frame` | `frameId, profileId?, context?` | Generate a Claude prompt for the target generator. |
-| `extract_frame` | `frameId` | Ensure a full-res still PNG exists; return its path. |
-| `export_board` | — | Export the whole board package; return the folder. |
-| `set_frame_duration` | `frameId, durationS` | Set a frame's animatic hold time (0.25–30s). |
-| `set_shot_meta` | `frameId, sceneNo?/shotNo?/shotSize?/cameraAngle?/lens?/movement?/transition?/durationS?` | Set shot-list metadata (any subset). |
-| `add_annotation` | `frameId, kind, points, text?, color?` | Draw an arrow (tail→head) or text annotation. |
-| `clear_annotations` | `frameId` | Remove all annotations from a frame. |
-| `export_animatic` | `burnLabel?` | Export a 1920×1080 animatic MP4 (scratch track muxed if set). |
-| `export_pdf` | — | Export a PDF storyboard. |
-| `export_shotlist` | — | Export a shot-list CSV. |
+- 自动选择空闲端口，不覆盖其他项目服务
+- 默认中文环境
+- 加载「雨夜灯塔」Demo
+- 检查参考卡数量、筛选标签数量、关键中文文本、筛选入口和详情面板
+- 输出截图到 `output/playwright/`
 
----
+典型输出：
 
-## Scripts
+```json
+{
+  "ok": true,
+  "cardCount": 10,
+  "filterChipCount": 25,
+  "detailRows": 9,
+  "detailTags": 6,
+  "filteredCount": 3
+}
+```
 
-| Command | What it does |
-|---|---|
-| `npm run dev` | Run with hot reload |
-| `npm run typecheck` / `npm run lint` | Strict TS + ESLint (zero warnings) |
-| `npm run smoke` | Build + full end-to-end: boots the app, runs real ffmpeg extraction (interval + scene), reframes, exports a real package, and verifies it with ffprobe |
-| `npm run package` | Build a macOS DMG (`release/`) |
-
-The README screenshots in `docs/images/` are generated, not hand-captured. After a build, run the docs spec:
+## Release 构建
 
 ```bash
 npm run build
-README_SHOTS=1 npx playwright test tests/e2e/readme-shots.spec.ts
+cd src-tauri
+cargo check
+cd ..
+npm run tauri:build
 ```
 
-It stages a board through the app and writes the six 1600×1000 PNGs. Point it at real footage with `README_FOOTAGE_DIR=/path/to/clips` (it looks for `night-market-scene1.mov`, `street-patrol.mp4`, and `night-market-portrait.mp4`); with the variable unset it synthesizes a stand-in clip so the spec still runs. This spec is gated behind `README_SHOTS` and never runs in the normal `npm run smoke` suite.
+Windows 产物位置：
 
-## Project structure
+- `src-tauri/target/release/storyboard-reference-studio.exe`
+- `src-tauri/target/release/bundle/nsis/Storyboard Reference Studio_2.0.0_x64-setup.exe`
+- `src-tauri/target/release/bundle/msi/Storyboard Reference Studio_2.0.0_x64_en-US.msi`
 
-See [DESIGN.md](DESIGN.md) (product brief) and [AGENTS.md](AGENTS.md) — the single source of truth for AI agents building or modifying this app: commands, repo map, hard rules (ffmpeg packaging, main-only Claude calls, `store.mutate`), the `window.__sbr` automation surface, and common-task recipes. Pure data + logic lives in `src/shared/`, imported by both the Electron main process and the React renderer.
+Tauri bundle identifier 当前为：
 
-## Support
+```json
+"identifier": "studio.storyboard.reference"
+```
 
-A few people asked if they could send tips to support my work developing open source tools. So I set up an optional way in case anyone wants to.
+### Windows 代码签名与 SmartScreen 友好发布
 
-No pressure at all. Using the apps, sharing them, starring the repositories, and contributing code all help too. Thank you.
+`npm run sign:windows` 会扫描 release exe、MSI 和 NSIS 安装包，使用 Windows SDK `signtool.exe` 做 SHA256 摘要签名和 RFC3161 时间戳，并输出 `output/signing/windows-signing-manifest.json`。正式发版建议：
 
-- [GitHub Sponsors](https://github.com/sponsors/wassermanproductions)
-- [Ko-fi](https://ko-fi.com/samwasserman)
+- 配置 `WINDOWS_SIGNING_CERTIFICATE_BASE64` + `WINDOWS_SIGNING_CERTIFICATE_PASSWORD`，或 `WINDOWS_SIGNING_CERT_THUMBPRINT` / `WINDOWS_PFX_PATH`
+- 设置 `WINDOWS_PUBLISHER_NAME` 为稳定发布者名称，默认 `BloomReel Team`
+- 设置 `WINDOWS_TIMESTAMP_URL`，默认 `http://timestamp.digicert.com`
+- 手动触发 CI release gate 时勾选 `require_signing`，等价于 `WINDOWS_SIGNING_REQUIRED=1`
+- 始终从同一 GitHub release 渠道发布已签名安装包，保持产品名与 Tauri identifier 稳定，帮助 SmartScreen 累积发布者信誉
 
-## License & credits
+## 导出内容
 
-**Apache License 2.0** — see [LICENSE](LICENSE). Free to use, modify, fork, and build on, commercially or otherwise.
+### 参考包
 
-**Attribution required:** per the [NOTICE](NOTICE) file (Apache 2.0 §4(d)), any use, fork, or redistribution must retain the NOTICE file and credit **Sam Wasserman ([wassermanproductions.com](https://wassermanproductions.com))** in its documentation and about/credits surface.
+导出文件夹结构：
 
-Created by **Sam Wasserman** — [wassermanproductions.com](https://wassermanproductions.com) · [wasserman.ai](https://wasserman.ai).
+```text
+exports/board-YYYYMMDD-HHMMSS/
+├── 01_参考标题/
+│   ├── still.png
+│   └── prompt.txt
+├── prompts.json
+├── contact-sheet.png
+└── board.md
+```
+
+
+### PDF 图文分镜页
+
+PDF 导出不再是最小占位文件，而是 A4 横版 2×3 图文分镜页：
+
+- 自动生成品牌封面页与目录/场次索引页
+- 每页 6 张参考卡，超过 6 张自动分页
+- 每页带 Storyboard Reference Studio 品牌页眉、页码、场次/镜号索引和本地资料库页脚
+- 页面包含打印出血/安全框参考，以及导演、摄影指导、美术指导、制片、日期片场签批栏
+- 导出菜单提供 **导演版/美术版** 两套模板：导演版偏场次、运动、转场和调度意图；美术版偏构图、光线、色彩、情绪和视觉开发用途
+- 每套模板都支持浅色版与深色版，文件名会标记 `director-light`、`director-dark`、`art-light` 或 `art-dark`
+- 每张卡包含缩略图、中文标题、场景/镜头类型、构图、光线、色彩/情绪、用途和 AI 图像/视频提示词
+- 中文文本会使用系统中文字体渲染到页面图像，再嵌入 PDF，避免 release 环境字体乱码
+### 动态分镜 MP4
+
+动态分镜导出现在是真实 MP4，而不是占位文本：
+
+- 分辨率：1920 x 1080
+- 帧率：24fps
+- 编码：H.264 / yuv420p
+- 每张参考按 `durationS` 保持时长
+- 导出菜单可开关淡入淡出、镜头编号烧录、参考标题烧录
+- 如项目设置了临时声音轨，会先生成波形 PNG 做可识别音频校验，再 mux 到视频中
+
+## 项目结构
+
+```text
+src/shared/       文档模型、schema 迁移、生成器 profile、标注 SVG
+src/renderer/     React UI、中文 Demo、store、Tauri bridge、面板组件
+src-tauri/        Tauri 2 原生命令、项目读写、导入、抽帧、导出、打包配置
+scripts/          smoke 与动态端口 Tauri dev 启动脚本
+output/playwright smoke 截图输出目录
+mcp/              MCP 桥接脚本资源
+```
+
+## 本地优先与离线模式
+
+项目保存在本机 `.sbref` 文件夹中，包含：
+
+- `project.json`
+- `media/`
+- `.frames/`
+- `.autosave/`
+- `exports/`
+
+导入、整理、检索、保存、导出均可本地运行。release 构建会通过 `npm run prepare:ffmpeg` 打包 ffmpeg/ffprobe sidecar；运行时仍支持 `SBR_FFMPEG` / `SBR_FFPROBE` 环境变量和系统路径探测，减少用户机器预装依赖。在线视觉分析尚未接入当前 Tauri 版本；右侧 **“离线模板”** 可根据镜头信息、光线和情绪生成 AI 图像/视频提示词草稿。
+
+## Windows Release CI
+
+`.github/workflows/windows-release-gate.yml` 会在 Windows 上执行完整 release 门禁：
+
+- `npm ci`
+- `npm run prepare:ffmpeg`
+- `npm run build`
+- `cargo check --manifest-path src-tauri/Cargo.toml`
+- `npm run tauri:build`
+- `npm run smoke`
+- `npm run smoke:tauri`
+
+CI 会上传 `output/playwright/` 截图与 `src-tauri/target/release/bundle/` 安装包，方便复核 release 构建、sidecar 调用和导出链路。
+
+
+## 授权与署名
+
+BloomReel Proprietary License，见 `LICENSE`。此 Rust/Tauri 版本为 BloomReel 闭源版本。
+
+本项目由 **BloomReel Team** 打造；第三方组件继续遵循其各自许可证与 NOTICE。
+
+
+

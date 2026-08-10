@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Present / Play mode: a fullscreen dark overlay that plays the board in order,
  * holding each frame for its durationS. Space toggles play/pause, arrows step,
  * M toggles the metadata strip, Esc exits. A scratch track (if set) plays in
@@ -13,8 +13,8 @@ import { ensureStill, audioAbsPath } from '../lib/frameOps'
 function metaStrip(frame: { shot: { sceneNo: string; shotNo: string; shotSize: string; cameraAngle: string; lens: string; movement: string; transition: string } }): string {
   const s = frame.shot
   return [
-    s.sceneNo && `Sc ${s.sceneNo}`,
-    s.shotNo && `Sh ${s.shotNo}`,
+    s.sceneNo && `场 ${s.sceneNo}`,
+    s.shotNo && `镜 ${s.shotNo}`,
     s.shotSize,
     s.cameraAngle,
     s.lens,
@@ -36,7 +36,7 @@ export function Present(): JSX.Element | null {
   const frames = useMemo(() => [...(rawFrames ?? [])].sort((a, b) => a.order - b.order), [rawFrames])
   const [index, setIndex] = useState(0)
   const [playing, setPlaying] = useState(true)
-  const [showMeta, setShowMeta] = useState(true)
+  const [show信息, setShow信息] = useState(true)
   const [audioUrl, setAudioUrl] = useState<string | null>(null)
   const audioRef = useRef<HTMLAudioElement>(null)
 
@@ -55,7 +55,7 @@ export function Present(): JSX.Element | null {
     if (!open) return
     setIndex(0)
     setPlaying(true)
-    setShowMeta(true)
+    setShow信息(true)
     void (async () => {
       for (const f of frames) await ensureStill(f.id)
     })()
@@ -138,7 +138,7 @@ export function Present(): JSX.Element | null {
         step(1)
       } else if (e.key === 'm' || e.key === 'M') {
         e.stopPropagation()
-        setShowMeta((v) => !v)
+        setShow信息((v) => !v)
       }
     }
     window.addEventListener('keydown', onKey, true)
@@ -151,27 +151,28 @@ export function Present(): JSX.Element | null {
     <div className="present-overlay">
       {audioUrl && <audio ref={audioRef} src={audioUrl} />}
       <div className="present-stage">
-        {url ? <img src={url} alt={current?.label ?? ''} /> : <div className="present-loading">Loading…</div>}
+        {url ? <img src={url} alt={current?.label ?? ''} /> : <div className="present-loading">加载中…</div>}
       </div>
 
-      {showMeta && current && (
+      {show信息 && current && (
         <div className="present-meta">
-          <div className="present-label">{current.label || '(untitled)'}</div>
+          <div className="present-label">{current.label || '未命名参考'}</div>
           <div className="present-shot">{metaStrip(current)}</div>
         </div>
       )}
 
       <div className="present-bar">
-        <button className="btn small" onClick={() => { setPlaying(false); step(-1) }} title="Previous (←)">◀</button>
-        <button className="btn small primary" onClick={() => setPlaying((p) => !p)} title="Play / pause (Space)">
+        <button className="btn small" onClick={() => { setPlaying(false); step(-1) }} title="上一张（←）">◀</button>
+        <button className="btn small primary" onClick={() => setPlaying((p) => !p)} title="播放 / 暂停（空格）">
           {playing ? '❚❚' : '▶'}
         </button>
-        <button className="btn small" onClick={() => { setPlaying(false); step(1) }} title="Next (→)">▶</button>
+        <button className="btn small" onClick={() => { setPlaying(false); step(1) }} title="下一张（→）">▶</button>
         <span className="present-count">{frames.length ? index + 1 : 0} / {frames.length}</span>
         <div style={{ flex: 1 }} />
-        <button className="btn small" onClick={() => setShowMeta((v) => !v)} title="Toggle metadata (M)">Meta</button>
-        <button className="btn small" onClick={() => setPresentOpen(false)} title="Exit (Esc)">✕ Exit</button>
+        <button className="btn small" onClick={() => setShow信息((v) => !v)} title="显示 / 隐藏镜头信息（M）">信息</button>
+        <button className="btn small" onClick={() => setPresentOpen(false)} title="退出（Esc）">✕ 退出</button>
       </div>
     </div>
   )
 }
+

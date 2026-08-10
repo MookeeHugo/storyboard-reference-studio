@@ -67,6 +67,7 @@ interface SbrState {
   /* lifecycle */
   newProject(folder: string, name: string): void
   loadFromJson(folder: string, json: string): boolean
+  loadDemoProject(folder: string, doc: Project, stills: Record<string, ExtractedStill>): void
   markSaved(): void
   setHelpOpen(open: boolean): void
 
@@ -151,7 +152,7 @@ export const useStore = create<SbrState>((set, get) => ({
   loadFromJson(folder, json) {
     const { doc } = parseProject(json)
     if (!doc) {
-      get().toast('Could not open project: invalid project.json', 'error')
+      get().toast('无法打开项目：project.json 格式无效', 'error')
       return false
     }
     set({
@@ -163,6 +164,19 @@ export const useStore = create<SbrState>((set, get) => ({
       dirty: false
     })
     return true
+  },
+
+  loadDemoProject(folder, doc, stills) {
+    set({
+      doc,
+      projectFolder: folder,
+      selectedMediaId: doc.media[0]?.id ?? null,
+      selectedFrameId: doc.frames[0]?.id ?? null,
+      stills,
+      dirty: true,
+      viewMode: doc.frames[0] ? 'frame' : 'clip',
+      selectedAnnotationId: null
+    })
   },
 
   markSaved: () => set({ dirty: false }),

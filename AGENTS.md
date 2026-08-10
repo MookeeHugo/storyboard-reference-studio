@@ -4,7 +4,7 @@ This file is the single source of truth for AI coding agents working on this rep
 
 ## What this app is
 
-Electron + TypeScript + React 18 desktop tool. Filmmakers turn ANY reference imagery — movie clips, phone footage, pulled stills, mood images — into a **storyboard of stills + image-generator-ready prompts**, so an image generator can recreate the framing and shot elements of each frame. Third app in Sam Wasserman's AI-filmmaking suite (with Blockout and Motion Previs Studio). Full product brief: `DESIGN.md`.
+Electron + TypeScript + React 18 desktop tool. Filmmakers turn ANY reference imagery — movie clips, phone footage, pulled stills, mood images — into a **storyboard of stills + image-generator-ready prompts**, so an image generator can recreate the framing and shot elements of each frame. Third app in BloomReel Team's AI-filmmaking suite (with Blockout and Motion Previs Studio). Full product brief: `DESIGN.md`.
 
 ## Commands
 

@@ -19,7 +19,7 @@ const num = (p: Params, k: string): number | undefined =>
 
 function requireDoc(): void {
   if (!useStore.getState().doc) {
-    throw new Error('No project open — create or open a project in the app first.')
+    throw new Error('当前没有打开项目，请先新建、打开或加载一个分镜参考项目。')
   }
 }
 
@@ -57,7 +57,7 @@ async function execute(action: string, params: Params): Promise<unknown> {
     case 'add_frame': {
       requireDoc()
       const mediaId = str(params, 'mediaId')
-      if (!mediaId) throw new Error('mediaId is required — call get_state for ids.')
+      if (!mediaId) throw new Error('缺少 mediaId，请先调用 get_state 获取素材 ID。')
       const frame = s.addFrame(mediaId, num(params, 'timeS') ?? 0, str(params, 'label') ?? '')
       await saveNow()
       return { frameId: frame.id }
@@ -81,10 +81,10 @@ async function execute(action: string, params: Params): Promise<unknown> {
       const outDir = `${s.projectFolder}${s.projectFolder.includes('\\') ? '\\' : '/'}.frames`
       await window.sbr.ensureDir(outDir)
       const res = await window.sbr.extractRange(abs, startS, endS, mode, outDir)
-      if (!res.ok) throw new Error(res.error ?? 'extraction failed')
+      if (!res.ok) throw new Error(res.error ?? '抽帧失败')
       const ids: string[] = []
       for (const { time, path } of res.frames) {
-        const frame = s.addFrame(mediaId!, time, `SHOT @ ${time.toFixed(1)}s`)
+        const frame = s.addFrame(mediaId!, time, `参考帧 @ ${time.toFixed(1)}s`)
         s.setStill(frame.id, { path, width: media.width, height: media.height })
         ids.push(frame.id)
       }
@@ -96,7 +96,7 @@ async function execute(action: string, params: Params): Promise<unknown> {
       requireDoc()
       const frameId = str(params, 'frameId')
       const label = str(params, 'label')
-      if (!frameId || label === undefined) throw new Error('frameId and label are required.')
+      if (!frameId || label === undefined) throw new Error('缺少 frameId 或参考标题。')
       s.setFrameLabel(frameId, label)
       await saveNow()
       return { ok: true }
@@ -106,7 +106,7 @@ async function execute(action: string, params: Params): Promise<unknown> {
       requireDoc()
       const frameId = str(params, 'frameId')
       const aspect = str(params, 'aspect')
-      if (!frameId) throw new Error('frameId is required.')
+      if (!frameId) throw new Error('缺少 frameId。')
       const x = num(params, 'x') ?? 0
       const y = num(params, 'y') ?? 0
       const w = num(params, 'w') ?? 1
@@ -119,10 +119,10 @@ async function execute(action: string, params: Params): Promise<unknown> {
     case 'describe_frame': {
       requireDoc()
       const frameId = str(params, 'frameId')
-      if (!frameId) throw new Error('frameId is required.')
+      if (!frameId) throw new Error('缺少 frameId。')
       const profileId = str(params, 'profileId') ?? s.doc?.settings.defaultProfileId ?? 'midjourney'
       const res = await generatePrompt(frameId, profileId, str(params, 'context') ?? '')
-      if (!res.ok) throw new Error(res.error ?? 'describe failed')
+      if (!res.ok) throw new Error(res.error ?? '提示词生成失败')
       await saveNow()
       const f = useStore.getState().frame(frameId)
       return { prompt: f?.prompt?.text ?? '' }
@@ -131,24 +131,24 @@ async function execute(action: string, params: Params): Promise<unknown> {
     case 'extract_frame': {
       requireDoc()
       const frameId = str(params, 'frameId')
-      if (!frameId) throw new Error('frameId is required.')
+      if (!frameId) throw new Error('缺少 frameId。')
       const path = await ensureStill(frameId)
-      if (!path) throw new Error('could not extract still')
+      if (!path) throw new Error('无法提取参考帧')
       return { path }
     }
 
     case 'export_board': {
       requireDoc()
-      if (!s.projectFolder) throw new Error('no project folder')
+      if (!s.projectFolder) throw new Error('项目文件夹不存在')
       for (const f of s.orderedFrames()) await ensureStill(f.id)
       const inputs = await buildExportInputs()
       const exportsRoot = `${s.projectFolder}${s.projectFolder.includes('\\') ? '\\' : '/'}exports`
       const res = await window.sbr.exportBoard({
-        projectName: s.doc?.name ?? 'Storyboard',
+        projectName: s.doc?.name ?? '分镜参考板',
         exportsRoot,
         frames: inputs
       })
-      if (!res.ok) throw new Error(res.error ?? 'export failed')
+      if (!res.ok) throw new Error(res.error ?? '导出失败')
       return { packagePath: res.packagePath }
     }
 
@@ -156,7 +156,7 @@ async function execute(action: string, params: Params): Promise<unknown> {
       requireDoc()
       const frameId = str(params, 'frameId')
       const durationS = num(params, 'durationS')
-      if (!frameId || durationS === undefined) throw new Error('frameId and durationS are required.')
+      if (!frameId || durationS === undefined) throw new Error('缺少 frameId 或时长。')
       s.setFrameDuration(frameId, durationS)
       await saveNow()
       return { ok: true }
@@ -165,7 +165,7 @@ async function execute(action: string, params: Params): Promise<unknown> {
     case 'set_shot_meta': {
       requireDoc()
       const frameId = str(params, 'frameId')
-      if (!frameId) throw new Error('frameId is required.')
+      if (!frameId) throw new Error('缺少 frameId。')
       const patch: Partial<ShotMeta> = {}
       for (const k of ['sceneNo', 'shotNo', 'shotSize', 'cameraAngle', 'lens', 'movement', 'transition'] as const) {
         const v = str(params, k)
@@ -183,7 +183,7 @@ async function execute(action: string, params: Params): Promise<unknown> {
       const frameId = str(params, 'frameId')
       const kind = str(params, 'kind')
       if (!frameId || (kind !== 'arrow' && kind !== 'text')) {
-        throw new Error('frameId and kind ("arrow" or "text") are required.')
+        throw new Error('缺少 frameId 或标注类型（arrow/text）。')
       }
       const rawPoints = params.points
       const points = Array.isArray(rawPoints)
@@ -193,7 +193,7 @@ async function execute(action: string, params: Params): Promise<unknown> {
               return { x: Number(pp?.x) || 0, y: Number(pp?.y) || 0 }
             })
         : []
-      if (points.length === 0) throw new Error('points is required (normalized 0..1 coords).')
+      if (points.length === 0) throw new Error('缺少标注坐标 points（0..1 归一化坐标）。')
       const color = str(params, 'color') ?? '#ff5533'
       const text = str(params, 'text')
       const created = s.addAnnotation(frameId, { kind, points, color, text })
@@ -204,7 +204,7 @@ async function execute(action: string, params: Params): Promise<unknown> {
     case 'clear_annotations': {
       requireDoc()
       const frameId = str(params, 'frameId')
-      if (!frameId) throw new Error('frameId is required.')
+      if (!frameId) throw new Error('缺少 frameId。')
       s.clearAnnotations(frameId)
       await saveNow()
       return { ok: true }
@@ -212,41 +212,48 @@ async function execute(action: string, params: Params): Promise<unknown> {
 
     case 'export_animatic': {
       requireDoc()
-      if (!s.projectFolder) throw new Error('no project folder')
+      if (!s.projectFolder) throw new Error('项目文件夹不存在')
       for (const f of s.orderedFrames()) await ensureStill(f.id)
       const inputs = await buildExportInputs()
       const exportsRoot = `${s.projectFolder}${s.projectFolder.includes('\\') ? '\\' : '/'}exports`
       const res = await window.sbr.exportAnimatic(
-        { projectName: s.doc?.name ?? 'Storyboard', exportsRoot, frames: inputs },
-        { burnLabel: params.burnLabel === true, audioPath: audioAbsPath() }
+        { projectName: s.doc?.name ?? '分镜参考板', exportsRoot, frames: inputs },
+        {
+          burnLabel: params.burnLabel !== false,
+          burnShotNumber: params.burnShotNumber !== false,
+          fade: params.fade !== false,
+          fadeDurationS: 0.22,
+          validateAudio: params.validateAudio !== false,
+          audioPath: audioAbsPath()
+        }
       )
-      if (!res.ok) throw new Error(res.error ?? 'animatic export failed')
-      return { videoPath: res.videoPath }
+      if (!res.ok) throw new Error(res.error ?? '动态分镜导出失败')
+      return { videoPath: res.videoPath, audioWaveformPath: res.audioWaveformPath ?? null }
     }
 
     case 'export_pdf': {
       requireDoc()
-      if (!s.projectFolder) throw new Error('no project folder')
+      if (!s.projectFolder) throw new Error('项目文件夹不存在')
       for (const f of s.orderedFrames()) await ensureStill(f.id)
       const inputs = await buildExportInputs()
       const exportsRoot = `${s.projectFolder}${s.projectFolder.includes('\\') ? '\\' : '/'}exports`
-      const res = await window.sbr.exportPdf({ projectName: s.doc?.name ?? 'Storyboard', exportsRoot, frames: inputs })
-      if (!res.ok) throw new Error(res.error ?? 'pdf export failed')
+      const res = await window.sbr.exportPdf({ projectName: s.doc?.name ?? '分镜参考板', exportsRoot, frames: inputs })
+      if (!res.ok) throw new Error(res.error ?? 'PDF 导出失败')
       return { pdfPath: res.pdfPath }
     }
 
     case 'export_shotlist': {
       requireDoc()
-      if (!s.projectFolder) throw new Error('no project folder')
+      if (!s.projectFolder) throw new Error('项目文件夹不存在')
       const inputs = await buildExportInputs()
       const exportsRoot = `${s.projectFolder}${s.projectFolder.includes('\\') ? '\\' : '/'}exports`
-      const res = await window.sbr.exportShotlist({ projectName: s.doc?.name ?? 'Storyboard', exportsRoot, frames: inputs })
-      if (!res.ok) throw new Error(res.error ?? 'shot list export failed')
+      const res = await window.sbr.exportShotlist({ projectName: s.doc?.name ?? '分镜参考板', exportsRoot, frames: inputs })
+      if (!res.ok) throw new Error(res.error ?? '镜头清单导出失败')
       return { csvPath: res.csvPath }
     }
 
     default:
-      throw new Error(`Unknown action "${action}".`)
+      throw new Error(`未知控制动作：“${action}”。`)
   }
 }
 

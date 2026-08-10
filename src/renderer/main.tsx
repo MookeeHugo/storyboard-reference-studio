@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { App } from './App'
 import { useStore } from './store'
 import { registerControlHandler } from './control'
+import './tauri-shim'
 
 // Automation surface for the e2e smoke test and for AI-agent driving — not a
 // public API; see AGENTS.md.

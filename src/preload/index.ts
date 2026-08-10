@@ -4,7 +4,7 @@
  */
 
 import { contextBridge, ipcRenderer } from 'electron'
-import type { DescribeResult, ShotMeta, Annotation } from '../shared/types'
+import type { DescribeResult, ShotMeta, Annotation, ReferenceMeta } from '../shared/types'
 
 export interface ImportedMedia {
   kind: 'image' | 'video'
@@ -45,23 +45,38 @@ export interface ExportFrameInput {
   mediaName: string
   durationS?: number
   shot?: ShotMeta
+  reference?: ReferenceMeta | null
   annotations?: Annotation[]
+}
+
+export type PdfTemplate = 'director' | 'art'
+export type PdfTheme = 'light' | 'dark'
+
+export interface PdfExportOptions {
+  template?: PdfTemplate
+  theme?: PdfTheme
 }
 
 export interface ExportBoardInput {
   projectName: string
   exportsRoot: string
   frames: ExportFrameInput[]
+  pdfOptions?: PdfExportOptions
 }
 
 export interface AnimaticOptions {
   burnLabel?: boolean
+  burnShotNumber?: boolean
+  fade?: boolean
+  fadeDurationS?: number
+  validateAudio?: boolean
   audioPath?: string | null
 }
 
 export interface SbrAPI {
   newProjectDialog(): Promise<string | null>
   openProjectDialog(): Promise<string | null>
+  getProjectsDir(): Promise<string | null>
   importMediaDialog(): Promise<string[]>
   saveProject(folder: string, json: string): Promise<boolean>
   saveBackup(folder: string, json: string): Promise<boolean>
@@ -95,9 +110,15 @@ export interface SbrAPI {
   exportAnimatic(
     input: ExportBoardInput,
     opts: AnimaticOptions
-  ): Promise<{ ok: boolean; error?: string; videoPath: string }>
+  ): Promise<{ ok: boolean; error?: string; videoPath: string; audioWaveformPath?: string | null }>
   exportPdf(input: ExportBoardInput): Promise<{ ok: boolean; error?: string; pdfPath: string }>
   exportShotlist(input: ExportBoardInput): Promise<{ ok: boolean; error?: string; csvPath: string }>
+  mediaToolsStatus?(): Promise<{
+    ffmpegPath: string | null
+    ffprobePath: string | null
+    ffmpegError: string | null
+    ffprobeError: string | null
+  }>
   ensureDir(path: string): Promise<boolean>
   tempDir(): Promise<string>
   versions(): Promise<{ app: string; electron: string; node: string }>
@@ -108,6 +129,7 @@ export interface SbrAPI {
 const api: SbrAPI = {
   newProjectDialog: () => ipcRenderer.invoke('dialog:newProject'),
   openProjectDialog: () => ipcRenderer.invoke('dialog:openProject'),
+  getProjectsDir: () => ipcRenderer.invoke('project:projectsDir'),
   importMediaDialog: () => ipcRenderer.invoke('dialog:importMedia'),
   saveProject: (folder, json) => ipcRenderer.invoke('project:save', folder, json),
   saveBackup: (folder, json) => ipcRenderer.invoke('project:saveBackup', folder, json),

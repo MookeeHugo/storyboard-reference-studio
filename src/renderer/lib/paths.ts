@@ -19,6 +19,7 @@ export async function projectFileUrl(
   relativePath: string,
   mime: string
 ): Promise<string> {
+  if (relativePath.startsWith('data:')) return relativePath
   const key = `${folder}::${relativePath}`
   const cached = blobCache.get(key)
   if (cached) return cached
@@ -31,6 +32,7 @@ export async function projectFileUrl(
 /** Turn an absolute PNG path into a blob URL (for extracted frame previews). */
 const absCache = new Map<string, string>()
 export async function absFileUrl(folder: string, absPath: string, mime = 'image/png'): Promise<string> {
+  if (absPath.startsWith('data:')) return absPath
   const cached = absCache.get(absPath)
   if (cached) return cached
   // absPath is inside the project temp area; read it through readProjectFile

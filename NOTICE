@@ -1,10 +1,6 @@
-Storyboard Reference Studio — turn reference imagery into a storyboard of
-stills and image-generator-ready prompts
-Copyright 2026 Sam Wasserman
-https://wassermanproductions.com · https://wasserman.ai
+Storyboard Reference Studio
+Copyright (c) 2026 BloomReel Team. All rights reserved.
 
-This product was created by Sam Wasserman. If you use, fork, or
-redistribute this software or derivative works, you must retain this
-NOTICE file and credit "Sam Wasserman (wassermanproductions.com)" in
-your documentation and any about/credits surface, per Section 4(d) of
-the Apache License 2.0.
+This BloomReel Rust/Tauri edition is proprietary software. BloomReel-authored source code, assets, workflows, demos, prompts, documentation, and build configuration may not be copied, modified, published, distributed, sublicensed, sold, hosted, reverse engineered, or used to create derivative works except under a separate written agreement with BloomReel Team.
+
+Third-party components remain governed by their own licenses and notices. See THIRD_PARTY_NOTICES.md, package metadata, dependency lockfiles, and component license files where applicable.

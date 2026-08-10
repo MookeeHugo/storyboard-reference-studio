@@ -1,6 +1,6 @@
 # Storyboard Reference Studio — design brief
 
-Third app in Sam Wasserman's AI-filmmaking suite (with Blockout and Motion Previs Studio).
+Third app in BloomReel Team's AI-filmmaking suite (with Blockout and Motion Previs Studio).
 Purpose: turn ANY reference imagery — movie clips, phone footage, pulled stills, mood images —
 into a **storyboard of stills + image-generator-ready prompts**, so an image generator can
 recreate the framing and shot elements of each frame.
@@ -32,10 +32,10 @@ recreate the framing and shot elements of each frame.
 - Projects are folders of pretty JSON + copied media; autosave every 60s; crash-safe reopen.
 - Deterministic where applicable; every action undoable is NOT required here (lighter app), but
   destructive actions confirm.
-- Apache-2.0 + NOTICE requiring credit to Sam Wasserman (wassermanproductions.com); in-app credits
-  line with clickable wassermanproductions.com + wasserman.ai (shell.openExternal allowlisted).
+- BloomReel Proprietary + NOTICE credit to BloomReel Team; in-app credits
+  line with a clickable BloomReel project entry (shell.openExternal allowlisted).
 - MCP agent control: localhost HTTP control server (random port + bearer token at
   ~/.config/storyboard-reference/control.json) + zero-dep stdio bridge mcp/storyboard-mcp.mjs —
   copy Blockout's proven mcp/control architecture (src/main/control.ts + renderer handler).
 - Help overlay: skimmable — Quick start cards + searchable "How do I…?" + shortcuts.
-- Logo: Sam will supply later; until then a typographic wordmark on the welcome screen.
+- Logo: BloomReel team will supply later; until then a typographic wordmark on the welcome screen.
