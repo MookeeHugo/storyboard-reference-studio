@@ -226,4 +226,3 @@ export function FrameStage({ frame }: { frame: Frame }): JSX.Element {
     </div>
   )
 }
-

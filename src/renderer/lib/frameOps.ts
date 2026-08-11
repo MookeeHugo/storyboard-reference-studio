@@ -189,4 +189,3 @@ export function templatePrompt(
     aspect: frame.crop?.aspect ?? null
   })
 }
-

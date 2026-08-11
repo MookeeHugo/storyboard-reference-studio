@@ -175,4 +175,3 @@ export function Present(): JSX.Element | null {
     </div>
   )
 }
-

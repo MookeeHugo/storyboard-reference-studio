@@ -191,6 +191,3 @@ CI 会上传 `output/playwright/` 截图与 `src-tauri/target/release/bundle/` �
 BloomReel Proprietary License，见 `LICENSE`。此 Rust/Tauri 版本为 BloomReel 闭源版本。
 
 本项目由 **BloomReel Team** 打造；第三方组件继续遵循其各自许可证与 NOTICE。
-
-
-

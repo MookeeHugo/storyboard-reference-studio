@@ -18,4 +18,3 @@ export function Toasts(): JSX.Element {
     </div>
   )
 }
-
