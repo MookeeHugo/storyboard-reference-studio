@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Transient notifications. Toasts auto-dismiss (store timer); click to dismiss.
  */
 

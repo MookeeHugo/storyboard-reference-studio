@@ -3,7 +3,7 @@
  * parseProject never throws on malformed input; it returns { doc, issues }.
  */
 
-import type { Project, MediaItem, Frame, MediaKind, Crop, ShotMeta, Annotation } from './types'
+import type { Project, MediaItem, Frame, MediaKind, Crop, ShotMeta, Annotation, ReferenceMeta } from './types'
 import { PROJECT_VERSION, DEFAULT_FRAME_DURATION_S, emptyShotMeta } from './types'
 import { DEFAULT_PROFILE_ID } from './profiles'
 
@@ -57,6 +57,7 @@ export function createFrame(
     prompt: null,
     durationS: DEFAULT_FRAME_DURATION_S,
     shot: emptyShotMeta(),
+    reference: null,
     annotations: []
   }
 }
@@ -105,7 +106,7 @@ export function parseProject(json: string): ParseOutcome {
   const doc: Project = {
     version: PROJECT_VERSION,
     id: typeof o.id === 'string' ? o.id : newId('proj'),
-    name: typeof o.name === 'string' ? o.name : 'Untitled',
+    name: typeof o.name === 'string' ? o.name : '未命名分镜参考',
     media,
     frames,
     settings: {
@@ -186,6 +187,7 @@ function sanitizeFrame(f: unknown, issues: ParseIssue[]): Frame | null {
         ? o.durationS
         : DEFAULT_FRAME_DURATION_S,
     shot: sanitizeShot(o.shot),
+    reference: sanitizeReference(o.reference),
     annotations: Array.isArray(o.annotations)
       ? (o.annotations as unknown[]).map(sanitizeAnnotation).filter(Boolean as unknown as (x: Annotation | null) => x is Annotation)
       : []
@@ -205,6 +207,25 @@ function sanitizeShot(s: unknown): ShotMeta {
     lens: str('lens'),
     movement: str('movement'),
     transition: str('transition')
+  }
+}
+
+function sanitizeReference(r: unknown): ReferenceMeta | null {
+  if (typeof r !== 'object' || r === null) return null
+  const o = r as Record<string, unknown>
+  const str = (key: keyof Omit<ReferenceMeta, 'tags'>): string =>
+    typeof o[key] === 'string' ? (o[key] as string) : ''
+  return {
+    scene: str('scene'),
+    shotType: str('shotType'),
+    composition: str('composition'),
+    lighting: str('lighting'),
+    color: str('color'),
+    mood: str('mood'),
+    purpose: str('purpose'),
+    shotUsage: str('shotUsage'),
+    tags: Array.isArray(o.tags) ? (o.tags as unknown[]).map(String).filter(Boolean) : [],
+    aiPromptNote: str('aiPromptNote')
   }
 }
 

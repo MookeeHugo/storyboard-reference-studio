@@ -13,6 +13,10 @@ export function useMediaUrl(media: MediaItem | null): string | null {
       setUrl(null)
       return
     }
+    if (media.sourceFile.startsWith('data:')) {
+      setUrl(media.sourceFile)
+      return
+    }
     void projectFileUrl(folder, media.sourceFile, mimeForMedia(media.name)).then((u) => {
       if (alive) setUrl(u)
     })
@@ -31,6 +35,10 @@ export function useAbsUrl(absPath: string | null): string | null {
     let alive = true
     if (!absPath || !folder) {
       setUrl(null)
+      return
+    }
+    if (absPath.startsWith('data:')) {
+      setUrl(absPath)
       return
     }
     const rel = absPath.startsWith(folder) ? absPath.slice(folder.length).replace(/^[/\\]/, '') : absPath

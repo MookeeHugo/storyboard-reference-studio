@@ -1,6 +1,6 @@
-/**
- * Left rail: the media bin. Import (file dialog) + Paste (clipboard PNG),
- * thumbnails, click to open in the viewer.
+﻿/**
+ * Left rail: media bin for visual references, imported clips, stills, and an
+ * optional scratch audio track for animatic playback.
  */
 
 import { useCallback, useEffect, useState } from 'react'
@@ -33,7 +33,7 @@ function BinItem({ item }: { item: MediaItem }): JSX.Element {
       <div className="bin-meta">
         <div className="bin-name" title={item.name}>{item.name}</div>
         <div className="bin-sub">{dims}{dur}</div>
-        <div className="bin-kind">{item.kind.toUpperCase()}</div>
+        <div className="bin-kind">{item.kind === 'video' ? '视频' : '图片'}</div>
       </div>
     </div>
   )
@@ -47,8 +47,6 @@ export function MediaBin(): JSX.Element {
   const audioFile = useStore((s) => s.doc?.settings.audioFile ?? null)
   const toast = useStore((s) => s.toast)
 
-  // Remember the scratch track so the bin row can toggle it on/off without
-  // losing the copied file (audioFile is the *active* animatic track).
   const [scratch, setScratch] = useState<{ sourceFile: string; name: string } | null>(null)
   useEffect(() => {
     if (audioFile) {
@@ -77,13 +75,13 @@ export function MediaBin(): JSX.Element {
           mediaCount++
         }
       } catch (e) {
-        toast(`Import failed: ${(e as Error).message}`, 'error')
+        toast(`导入失败：${(e as Error).message}`, 'error')
       }
     }
     const json = currentProjectJson()
     if (json) await window.sbr.saveProject(folder, json)
-    if (mediaCount) toast(`Imported ${mediaCount} file${mediaCount > 1 ? 's' : ''}.`, 'success')
-    if (audioCount) toast('Added scratch track.', 'success')
+    if (mediaCount) toast(`已导入 ${mediaCount} 个视觉素材。`, 'success')
+    if (audioCount) toast('已添加临时声音轨。', 'success')
   }, [folder, addMedia, setAudioFile, toast])
 
   const toggleScratch = useCallback(() => {
@@ -107,27 +105,27 @@ export function MediaBin(): JSX.Element {
         addMedia(imported)
       }
       if (n === 0) {
-        toast('No image found on the clipboard.', 'error')
+        toast('剪贴板里没有找到图片。', 'error')
         return
       }
       const json = currentProjectJson()
       if (json) await window.sbr.saveProject(folder, json)
-      toast(`Pasted ${n} image${n > 1 ? 's' : ''}.`, 'success')
+      toast(`已粘贴 ${n} 张截图。`, 'success')
     } catch (e) {
-      toast(`Paste failed: ${(e as Error).message}`, 'error')
+      toast(`粘贴失败：${(e as Error).message}`, 'error')
     }
   }, [folder, addMedia, toast])
 
   return (
     <div className="bin panel">
       <div className="bin-actions">
-        <button className="btn small" onClick={onImport}>＋ Import</button>
-        <button className="btn small" onClick={onPaste}>⧉ Paste</button>
+        <button className="btn small" onClick={onImport}>＋ 导入素材</button>
+        <button className="btn small" onClick={onPaste}>⧉ 粘贴截图</button>
       </div>
       <div className="bin-list">
         {(doc?.media.length ?? 0) === 0 ? (
           <div className="hint" style={{ padding: 8 }}>
-            Import videos, images, or an audio scratch track — or paste a screenshot — to start.
+            导入视频、图片或临时声音轨，也可以直接粘贴截图来建立镜头参考资料库。
           </div>
         ) : (
           doc!.media.map((m) => <BinItem key={m.id} item={m} />)
@@ -136,13 +134,13 @@ export function MediaBin(): JSX.Element {
           <div
             className={`bin-item scratch ${audioFile === scratch.sourceFile ? 'active' : ''}`}
             onClick={toggleScratch}
-            title="Click to set / unset as the animatic scratch track"
+            title="点击设为/取消动态分镜临时声音轨"
           >
             <div className="bin-thumb scratch-thumb">♪</div>
             <div className="bin-meta">
               <div className="bin-name" title={scratch.name}>{scratch.name}</div>
-              <div className="bin-sub">{audioFile === scratch.sourceFile ? 'scratch track' : 'audio (off)'}</div>
-              <div className="bin-kind">AUDIO</div>
+              <div className="bin-sub">{audioFile === scratch.sourceFile ? '临时声音轨' : '声音（未启用）'}</div>
+              <div className="bin-kind">声音</div>
             </div>
           </div>
         )}

@@ -55,6 +55,30 @@ export interface ShotMeta {
   transition: string
 }
 
+/** Chinese visual-development metadata attached to a reference card. */
+export interface ReferenceMeta {
+  /** 场景 / 段落，例如“外景沿海公路”. */
+  scene: string
+  /** 镜头类型，例如“远景 / 车内近景”. */
+  shotType: string
+  /** 构图关键词，例如“三分法、前景遮挡、纵深线”. */
+  composition: string
+  /** 光线设计，例如“雨夜逆光、灯塔扫光”. */
+  lighting: string
+  /** 色彩方案，例如“冷蓝海雾 + 钠灯橙”. */
+  color: string
+  /** 情绪，例如“孤立、悬疑、压迫”. */
+  mood: string
+  /** 这张参考在创作流程中的用途. */
+  purpose: string
+  /** 可用于哪一场 / 哪一镜. */
+  shotUsage: string
+  /** 人物、地点、美术、摄影、AI 提示词标签. */
+  tags: string[]
+  /** AI 图像 / 视频提示词备注. */
+  aiPromptNote: string
+}
+
 export type AnnotationKind = 'arrow' | 'text'
 
 /**
@@ -86,6 +110,8 @@ export interface Frame {
   durationS: number
   /** Shot-list metadata (default all ''). */
   shot: ShotMeta
+  /** Optional visual-reference metadata for Chinese storyboard workflows. */
+  reference: ReferenceMeta | null
   /** Camera-move / action annotations (default []). */
   annotations: Annotation[]
 }

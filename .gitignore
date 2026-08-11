@@ -1,6 +1,8 @@
 node_modules/
 out/
 dist/
+src-tauri/target/
+output/
 release/
 exports/
 *.log
@@ -9,6 +11,7 @@ test-results/
 playwright-report/
 coverage/
 *.local
+src-tauri/bin/
 
 # iCloud sync duplicates ("file 2.ts") must never be committed
 * [0-9].*

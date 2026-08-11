@@ -13,6 +13,7 @@ import { Toasts } from './panels/Toasts'
 import { HelpOverlay } from './panels/Help'
 import { Present } from './panels/Present'
 import logoUrl from './assets/logo.png'
+import { createLighthouseDemo } from './demo'
 
 function CreditLink({ url, children }: { url: string; children: string }): JSX.Element {
   return (
@@ -31,11 +32,12 @@ function CreditLink({ url, children }: { url: string; children: string }): JSX.E
 export function Credits(): JSX.Element {
   return (
     <div className="credits">
-      Created by Sam Wasserman ·{' '}
-      <CreditLink url="https://wassermanproductions.com">wassermanproductions.com</CreditLink> ·{' '}
-      <CreditLink url="https://wasserman.ai">wasserman.ai</CreditLink>
+      本地优先、无需账号、无需 API 密钥；创作资料不上云。
       <br />
-      Open source under Apache-2.0 — keep this credit when using or forking.
+      BloomReel 团队出品 ·{' '}
+      <CreditLink url="https://github.com/MookeeHugo">BloomReel 项目入口</CreditLink>
+      <br />
+      BloomReel 专有版；用于中文影视创作流程，第三方组件遵循各自许可。
     </div>
   )
 }
@@ -43,35 +45,48 @@ export function Credits(): JSX.Element {
 function Welcome(): JSX.Element {
   const newProject = useStore((s) => s.newProject)
   const loadFromJson = useStore((s) => s.loadFromJson)
+  const loadDemoProject = useStore((s) => s.loadDemoProject)
   const toast = useStore((s) => s.toast)
   const setHelpOpen = useStore((s) => s.setHelpOpen)
 
   const onNew = useCallback(async () => {
     const folder = await window.sbr.newProjectDialog()
     if (!folder) return
-    const name = folder.split(/[/\\]/).pop()?.replace(/\.sbref$/, '') ?? 'Untitled'
+    const name = folder.split(/[/\\]/).pop()?.replace(/\.sbref$/, '') ?? '未命名分镜参考'
     newProject(folder, name)
     const json = currentProjectJson()
     if (json) await window.sbr.saveProject(folder, json)
-  }, [newProject])
+    toast('已创建新的本地分镜参考项目。', 'success')
+  }, [newProject, toast])
 
   const onOpen = useCallback(async () => {
     const folder = await window.sbr.openProjectDialog()
     if (!folder) return
     const { json, backupJson, backupNewer } = await window.sbr.loadProject(folder)
     if (!json && !backupJson) {
-      toast('No project.json found in that folder.', 'error')
+      toast('这个文件夹里没有找到 project.json。', 'error')
       return
     }
     if (backupNewer && backupJson && loadFromJson(folder, backupJson)) {
-      toast('Restored unsaved work from the autosave backup — Save to keep it.', 'success')
+      toast('已从自动备份恢复未保存内容，请保存以保留。', 'success')
       return
     }
     if (json && loadFromJson(folder, json)) return
     if (backupJson && loadFromJson(folder, backupJson)) {
-      toast('Recovered from autosave backup.', 'success')
+      toast('已从自动备份恢复项目。', 'success')
     }
   }, [loadFromJson, toast])
+
+  const onDemo = useCallback(async () => {
+    const demo = createLighthouseDemo()
+    const root = await window.sbr.getProjectsDir()
+    const sep = root?.includes('\\') ? '\\' : '/'
+    const folder = root ? `${root}${sep}${demo.folderName}` : `browser-project://${demo.folderName}`
+    loadDemoProject(folder, demo.doc, demo.stills)
+    const json = currentProjectJson()
+    if (json) await window.sbr.saveProject(folder, json)
+    toast(`已加载「${demo.doc.name}」：${demo.doc.frames.length} 条镜头参考。`, 'success')
+  }, [loadDemoProject, toast])
 
   return (
     <div className="welcome">
@@ -81,13 +96,14 @@ function Welcome(): JSX.Element {
         style={{ width: 280, height: 280, objectFit: 'contain', borderRadius: 16, marginBottom: -12 }}
       />
       <p>
-        Turn any reference imagery — movie clips, phone footage, pulled stills — into a storyboard of
-        stills and image-generator-ready prompts.
+        面向中文影视创作者的本地分镜参考、镜头图像资料库与视觉风格检索工作台。
+        导演、摄影、美术和 AI 视频提示词协作，都可以围绕同一张参考卡整理。
       </p>
       <div className="actions">
-        <button className="btn primary" onClick={onNew}>New Project</button>
-        <button className="btn" onClick={onOpen}>Open Project…</button>
-        <button className="btn" onClick={() => setHelpOpen(true)}>? Quick start</button>
+        <button className="btn primary" onClick={onDemo}>加载雨夜灯塔 Demo</button>
+        <button className="btn" onClick={onNew}>新建项目</button>
+        <button className="btn" onClick={onOpen}>打开项目…</button>
+        <button className="btn" onClick={() => setHelpOpen(true)}>快速上手</button>
       </div>
       <Credits />
     </div>
@@ -188,7 +204,7 @@ function useKeyboard(): void {
         }
         if (s.selectedFrameId) {
           const frame = s.frame(s.selectedFrameId)
-          if (frame?.prompt?.text && !window.confirm('This frame has a prompt. Remove it?')) return
+          if (frame?.prompt?.text && !window.confirm('这张参考卡已有提示词，确定移除吗？')) return
           s.removeFrame(s.selectedFrameId)
           const json = currentProjectJson()
           if (json && s.projectFolder) void window.sbr.saveProject(s.projectFolder, json)
@@ -221,7 +237,7 @@ export function App(): JSX.Element {
     return (
       <div className="app">
         <div className="titlebar">
-          <span className="app-name">STORYBOARD REFERENCE</span>
+          <span className="app-name">分镜参考工作室</span>
         </div>
         <Welcome />
         <Toasts />
@@ -233,14 +249,14 @@ export function App(): JSX.Element {
   return (
     <div className="app">
       <div className="titlebar">
-        <span className="app-name">STORYBOARD REFERENCE</span>
+        <span className="app-name">分镜参考工作室</span>
         <span style={{ color: 'var(--text-faint)', fontSize: 12 }}>
           {doc.name}
           {dirty ? ' •' : ''}
         </span>
         <div className="spacer" />
-        <button className="btn small" onClick={onSave}>Save</button>
-        <button className="btn small" onClick={() => useStore.getState().setHelpOpen(true)}>? Help</button>
+        <button className="btn small" onClick={onSave}>保存</button>
+        <button className="btn small" onClick={() => useStore.getState().setHelpOpen(true)}>帮助</button>
       </div>
       <div className="workspace">
         <MediaBin />

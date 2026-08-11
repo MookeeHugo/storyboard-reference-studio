@@ -29,6 +29,10 @@ export async function ensureStill(frameId: string): Promise<string | null> {
   if (!media) return null
   const abs = s.mediaAbsPath(frame.mediaId)
   if (!abs) return null
+  if (media.sourceFile.startsWith('data:')) {
+    s.setStill(frameId, { path: media.sourceFile, width: media.width, height: media.height })
+    return media.sourceFile
+  }
 
   const outPng = stillPathFor(s.projectFolder, frameId)
   await window.sbr.ensureDir(`${s.projectFolder}${s.projectFolder.includes('\\') ? '\\' : '/'}.frames`)
@@ -52,7 +56,7 @@ export async function generatePrompt(
   extraContext = ''
 ): Promise<{ ok: boolean; error?: string }> {
   const still = await ensureStill(frameId)
-  if (!still) return { ok: false, error: 'Could not extract the frame image.' }
+  if (!still) return { ok: false, error: '无法提取参考帧图像，请确认素材仍在项目文件夹内。' }
   const result = await window.sbr.describeFrame(still, profileId, extraContext)
   if (!result.ok) return { ok: false, error: result.error }
   useStore.getState().setFramePrompt(frameId, result.description.promptText, profileId, 'claude-opus-4-8')
@@ -64,9 +68,57 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image()
     img.onload = () => resolve(img)
-    img.onerror = () => reject(new Error('image load failed'))
+    img.onerror = () => reject(new Error('图像加载失败'))
     img.src = src
   })
+}
+
+async function rasterizeStill(
+  frame: Frame,
+  stillPath: string,
+  w: number,
+  h: number,
+  svgOverlay = ''
+): Promise<string> {
+  const s = useStore.getState()
+  const folder = s.projectFolder
+  if (!folder || w <= 0 || h <= 0) return stillPath
+
+  const sep = folder.includes('\\') ? '\\' : '/'
+  const suffix = svgOverlay ? annotationsHash(frame) : 'base'
+  const rel = `.frames${sep}export-${frame.id}-${suffix}.png`
+
+  try {
+    const canvas = document.createElement('canvas')
+    canvas.width = w
+    canvas.height = h
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return stillPath
+
+    let sourceUrl = stillPath
+    let revokeSource = false
+    if (!stillPath.startsWith('data:')) {
+      const stillRel = stillPath.startsWith(folder) ? stillPath.slice(folder.length).replace(/^[/\\]/, '') : stillPath
+      const buf = await window.sbr.readProjectFile(folder, stillRel)
+      sourceUrl = URL.createObjectURL(new Blob([buf], { type: 'image/png' }))
+      revokeSource = true
+    }
+
+    ctx.drawImage(await loadImage(sourceUrl), 0, 0, w, h)
+    if (revokeSource) URL.revokeObjectURL(sourceUrl)
+
+    if (svgOverlay) {
+      const svgUrl = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svgOverlay)))}`
+      ctx.drawImage(await loadImage(svgUrl), 0, 0, w, h)
+    }
+
+    const dataUrl = canvas.toDataURL('image/png')
+    const base64 = dataUrl.slice(dataUrl.indexOf(',') + 1)
+    const ok = await window.sbr.writeProjectPng(folder, rel, base64)
+    return ok ? `${folder}${sep}${rel}` : stillPath
+  } catch {
+    return stillPath
+  }
 }
 
 /**
@@ -76,34 +128,9 @@ function loadImage(src: string): Promise<HTMLImageElement> {
  * original still. The composite is cached by annotations hash.
  */
 export async function compositeAnnotated(frame: Frame, stillPath: string, w: number, h: number): Promise<string> {
-  if (!frame.annotations || frame.annotations.length === 0 || w <= 0 || h <= 0) return stillPath
+  if ((!frame.annotations || frame.annotations.length === 0) && !stillPath.startsWith('data:')) return stillPath
   const svg = renderAnnotationsSvg(frame, w, h)
-  if (!svg) return stillPath
-  const s = useStore.getState()
-  const folder = s.projectFolder
-  if (!folder) return stillPath
-  const sep = folder.includes('\\') ? '\\' : '/'
-  const rel = `.frames${sep}anno-${frame.id}-${annotationsHash(frame)}.png`
-  try {
-    const stillRel = stillPath.startsWith(folder) ? stillPath.slice(folder.length).replace(/^[/\\]/, '') : stillPath
-    const buf = await window.sbr.readProjectFile(folder, stillRel)
-    const stillUrl = URL.createObjectURL(new Blob([buf], { type: 'image/png' }))
-    const svgUrl = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`
-    const canvas = document.createElement('canvas')
-    canvas.width = w
-    canvas.height = h
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return stillPath
-    ctx.drawImage(await loadImage(stillUrl), 0, 0, w, h)
-    ctx.drawImage(await loadImage(svgUrl), 0, 0, w, h)
-    URL.revokeObjectURL(stillUrl)
-    const dataUrl = canvas.toDataURL('image/png')
-    const base64 = dataUrl.slice(dataUrl.indexOf(',') + 1)
-    const ok = await window.sbr.writeProjectPng(folder, rel, base64)
-    return ok ? `${folder}${sep}${rel}` : stillPath
-  } catch {
-    return stillPath
-  }
+  return rasterizeStill(frame, stillPath, w, h, svg)
 }
 
 /** Build the export inputs for the whole board (extracts any missing stills). */
@@ -129,6 +156,7 @@ export async function buildExportInputs(): Promise<ExportFrameInput[]> {
       mediaName: media?.name ?? '',
       durationS: frame.durationS,
       shot: frame.shot,
+      reference: frame.reference,
       annotations: frame.annotations
     })
   }
