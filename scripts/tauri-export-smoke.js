@@ -1,7 +1,7 @@
 ﻿import { createServer } from 'node:net'
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
-import { execFileSync, spawn } from 'node:child_process'
+import { execFileSync, spawn, spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright'
 
@@ -9,6 +9,7 @@ const root = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const outputDir = join(root, 'output', 'playwright')
 const smokeRoot = join(root, 'output', 'tauri-release-smoke')
 const projectsDir = join(smokeRoot, 'projects')
+const webviewProfileDir = join(smokeRoot, 'webview2-profile')
 const exePath = process.env.SBR_TAURI_EXE || join(root, 'src-tauri', 'target', 'release', 'storyboard-reference-studio.exe')
 
 function zh(escaped) {
@@ -31,10 +32,23 @@ function findFreePort(startPort) {
   })
 }
 
-async function waitForCdp(port, timeoutMs = 45_000) {
+function killTree(child) {
+  if (!child?.pid) return
+  if (process.platform === 'win32') {
+    spawnSync('taskkill', ['/pid', String(child.pid), '/t', '/f'], { stdio: 'ignore' })
+  } else {
+    child.kill('SIGTERM')
+  }
+}
+
+async function waitForCdp(port, getChildExit, timeoutMs = 120_000) {
   const url = `http://127.0.0.1:${port}`
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
+    const childExit = getChildExit?.()
+    if (childExit) {
+      throw new Error(`Release exe exited before WebView2 CDP started: ${JSON.stringify(childExit)}`)
+    }
     try {
       const res = await fetch(`${url}/json/version`)
       if (res.ok) return url
@@ -95,6 +109,8 @@ async function main() {
   assert(existsSync(exePath), `Release exe not found: ${exePath}`)
   mkdirSync(outputDir, { recursive: true })
   mkdirSync(projectsDir, { recursive: true })
+  try { rmSync(webviewProfileDir, { recursive: true, force: true }) } catch {}
+  mkdirSync(webviewProfileDir, { recursive: true })
 
   const cdpPort = Number(process.env.SBR_TAURI_CDP_PORT || await findFreePort(9333))
   const extraArgs = [process.env.WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS, `--remote-debugging-port=${cdpPort}`, '--remote-allow-origins=*']
@@ -103,6 +119,7 @@ async function main() {
   const env = {
     ...process.env,
     WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: extraArgs,
+    WEBVIEW2_USER_DATA_FOLDER: webviewProfileDir,
     SBR_PROJECTS_DIR: projectsDir
   }
   delete env.SBR_FFMPEG
@@ -110,11 +127,13 @@ async function main() {
 
   const child = spawn(exePath, [], { cwd: root, env, stdio: ['ignore', 'pipe', 'pipe'] })
   let stderr = ''
+  let childExit = null
   child.stderr.on('data', (chunk) => { stderr += chunk.toString() })
+  child.once('exit', (code, signal) => { childExit = { code, signal } })
 
   let browser
   try {
-    const cdpUrl = await waitForCdp(cdpPort)
+    const cdpUrl = await waitForCdp(cdpPort, () => childExit)
     browser = await chromium.connectOverCDP(cdpUrl)
     const page = await firstUsefulPage(browser)
     await page.setViewportSize({ width: 1440, height: 980 })
@@ -231,12 +250,13 @@ async function main() {
     }, null, 2))
   } finally {
     if (browser) await browser.close().catch(() => {})
-    if (!child.killed) child.kill()
+    killTree(child)
     await new Promise((resolveExit) => {
       if (child.exitCode !== null || child.signalCode !== null) return resolveExit()
       const timer = setTimeout(resolveExit, 3000)
       child.once('exit', () => { clearTimeout(timer); resolveExit() })
     })
+    try { rmSync(webviewProfileDir, { recursive: true, force: true }) } catch {}
     if (stderr.trim()) console.error(stderr.trim())
   }
 }
