@@ -8,10 +8,113 @@ use imageproc::drawing::{draw_filled_rect_mut, draw_hollow_rect_mut, draw_line_s
 use imageproc::rect::Rect;
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::process::Command;
 use tauri::{command, AppHandle, Manager};
 use uuid::Uuid;
+
+const MAX_PROJECT_JSON_BYTES: usize = 20 * 1024 * 1024;
+const MAX_PROJECT_FILE_BYTES: u64 = 2 * 1024 * 1024 * 1024;
+const MAX_PROJECT_PNG_BYTES: usize = 25 * 1024 * 1024;
+
+fn validate_project_root(root: &Path) -> Result<(), String> {
+    if !root.is_absolute() {
+        return Err("Project path must be absolute".to_string());
+    }
+    if root.components().any(|component| matches!(component, Component::ParentDir)) {
+        return Err("Project path cannot contain parent traversal".to_string());
+    }
+    let is_sbref = root
+        .file_name()
+        .and_then(|name| Path::new(name).extension())
+        .and_then(|ext| ext.to_str())
+        .map(|ext| ext.eq_ignore_ascii_case("sbref"))
+        .unwrap_or(false);
+    if !is_sbref {
+        return Err("Project root must be a .sbref folder".to_string());
+    }
+    Ok(())
+}
+
+fn project_root(folder: &str) -> Result<PathBuf, String> {
+    let root = PathBuf::from(folder);
+    validate_project_root(&root)?;
+    Ok(root)
+}
+
+fn validate_project_owned_path(path: &Path) -> Result<(), String> {
+    if !path.is_absolute() {
+        return Err("Project file path must be absolute".to_string());
+    }
+    if path.components().any(|component| matches!(component, Component::ParentDir)) {
+        return Err("Project file path cannot contain parent traversal".to_string());
+    }
+    let has_project_root = path.components().any(|component| match component {
+        Component::Normal(part) => Path::new(part)
+            .extension()
+            .and_then(|ext| ext.to_str())
+            .map(|ext| ext.eq_ignore_ascii_case("sbref"))
+            .unwrap_or(false),
+        _ => false,
+    });
+    if !has_project_root {
+        return Err("Only files inside a .sbref project are allowed".to_string());
+    }
+    Ok(())
+}
+
+fn safe_relative_path(relative_path: &str) -> Result<PathBuf, String> {
+    let raw = Path::new(relative_path);
+    if raw.is_absolute() {
+        return Err("Project internal path must be relative".to_string());
+    }
+    let mut clean = PathBuf::new();
+    for component in raw.components() {
+        match component {
+            Component::Normal(part) => clean.push(part),
+            Component::CurDir => {}
+            _ => return Err("Project internal path cannot escape the project".to_string()),
+        }
+    }
+    if clean.as_os_str().is_empty() {
+        return Err("Project internal path cannot be empty".to_string());
+    }
+    Ok(clean)
+}
+
+fn project_path(folder: &str, relative_path: &str) -> Result<PathBuf, String> {
+    Ok(project_root(folder)?.join(safe_relative_path(relative_path)?))
+}
+
+fn validate_json_size(json: &str) -> Result<(), String> {
+    if json.len() > MAX_PROJECT_JSON_BYTES {
+        return Err("Project JSON is too large to write safely".to_string());
+    }
+    Ok(())
+}
+
+fn read_project_text(path: &Path) -> Result<String, String> {
+    if let Ok(meta) = fs::metadata(path) {
+        if meta.len() > MAX_PROJECT_JSON_BYTES as u64 {
+            return Err("Project JSON is too large to read safely".to_string());
+        }
+    }
+    fs::read_to_string(path).map_err(|e| format!("Failed to read project JSON: {}", e))
+}
+
+fn validate_existing_input_file(path: &Path) -> Result<(), String> {
+    if !path.is_absolute() || path.components().any(|component| matches!(component, Component::ParentDir)) {
+        return Err("Media path must be absolute and cannot contain parent traversal".to_string());
+    }
+    let meta = fs::metadata(path).map_err(|_| "Media file does not exist".to_string())?;
+    if !meta.is_file() {
+        return Err("Media path must point to a file".to_string());
+    }
+    if meta.len() > MAX_PROJECT_FILE_BYTES {
+        return Err("Media file is too large to import safely".to_string());
+    }
+    Ok(())
+}
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -185,15 +288,17 @@ pub fn get_projects_dir(app: AppHandle) -> Result<String, String> {
 
 #[command(rename_all = "camelCase")]
 pub fn save_project(folder: String, json: String) -> Result<bool, String> {
-    let root = PathBuf::from(&folder);
+    validate_json_size(&json)?;
+    let root = project_root(&folder)?;
     ensure_project_dirs(&root)?;
-    fs::write(root.join("project.json"), json).map_err(|e| format!("无法保存项目：{}", e))?;
+    fs::write(root.join("project.json"), json).map_err(|e| format!("Failed to write project: {}", e))?;
     Ok(true)
 }
 
 #[command(rename_all = "camelCase")]
 pub fn save_backup(folder: String, json: String) -> Result<bool, String> {
-    let root = PathBuf::from(&folder);
+    validate_json_size(&json)?;
+    let root = project_root(&folder)?;
     let backup = root.join(".autosave");
     fs::create_dir_all(&backup).map_err(|e| format!("无法创建自动备份目录：{}", e))?;
     fs::write(backup.join("project.json"), json).map_err(|e| format!("无法保存自动备份：{}", e))?;
@@ -202,11 +307,11 @@ pub fn save_backup(folder: String, json: String) -> Result<bool, String> {
 
 #[command(rename_all = "camelCase")]
 pub fn load_project(folder: String) -> Result<LoadProjectResult, String> {
-    let root = PathBuf::from(&folder);
+    let root = project_root(&folder)?;
     let project_path = root.join("project.json");
     let backup_path = root.join(".autosave").join("project.json");
-    let json = fs::read_to_string(&project_path).ok();
-    let backup_json = fs::read_to_string(&backup_path).ok();
+    let json = read_project_text(&project_path).ok();
+    let backup_json = read_project_text(&backup_path).ok();
     let backup_newer = modified_ms(&backup_path) > modified_ms(&project_path);
     Ok(LoadProjectResult { json, backup_json, backup_newer, folder })
 }
@@ -214,15 +319,13 @@ pub fn load_project(folder: String) -> Result<LoadProjectResult, String> {
 #[command(rename_all = "camelCase")]
 pub fn import_media(folder: String, source_path: String) -> Result<ImportedMedia, String> {
     let source = PathBuf::from(&source_path);
-    if !source.exists() {
-        return Err("素材文件不存在".to_string());
-    }
-    let root = PathBuf::from(&folder);
+    validate_existing_input_file(&source)?;
+    let root = project_root(&folder)?;
     ensure_project_dirs(&root)?;
     let name = source.file_name().and_then(|s| s.to_str()).unwrap_or("reference").to_string();
     let dest_rel = format!("media/{}-{}", Uuid::new_v4(), safe_name(&name));
     let dest_abs = root.join(rel_to_path(&dest_rel));
-    fs::copy(&source, &dest_abs).map_err(|e| format!("无法复制素材：{}", e))?;
+    fs::copy(&source, &dest_abs).map_err(|e| format!("Failed to copy media file: {}", e))?;
 
     let kind = if is_video(&source) { "video" } else { "image" }.to_string();
     let (width, height, duration_s, fps) = if kind == "video" {
@@ -238,20 +341,21 @@ pub fn import_media(folder: String, source_path: String) -> Result<ImportedMedia
 #[command(rename_all = "camelCase")]
 pub fn import_audio(folder: String, source_path: String) -> Result<ImportedAudio, String> {
     let source = PathBuf::from(&source_path);
-    if !source.exists() {
-        return Err("声音文件不存在".to_string());
-    }
-    let root = PathBuf::from(&folder);
+    validate_existing_input_file(&source)?;
+    let root = project_root(&folder)?;
     ensure_project_dirs(&root)?;
     let name = source.file_name().and_then(|s| s.to_str()).unwrap_or("scratch-audio").to_string();
     let dest_rel = format!("media/{}-{}", Uuid::new_v4(), safe_name(&name));
-    fs::copy(&source, root.join(rel_to_path(&dest_rel))).map_err(|e| format!("无法复制声音文件：{}", e))?;
+    fs::copy(&source, root.join(rel_to_path(&dest_rel))).map_err(|e| format!("Failed to copy audio file: {}", e))?;
     Ok(ImportedAudio { source_file: dest_rel, name })
 }
 
 #[command(rename_all = "camelCase")]
 pub fn paste_image(folder: String, data: Vec<u8>, index: usize) -> Result<ImportedMedia, String> {
-    let root = PathBuf::from(&folder);
+    if data.len() > MAX_PROJECT_PNG_BYTES {
+        return Err("Pasted image is too large to write safely".to_string());
+    }
+    let root = project_root(&folder)?;
     ensure_project_dirs(&root)?;
     let name = format!("粘贴截图-{}.png", index);
     let dest_rel = format!("media/{}-paste-{}.png", Uuid::new_v4(), index);
@@ -263,26 +367,35 @@ pub fn paste_image(folder: String, data: Vec<u8>, index: usize) -> Result<Import
 
 #[command(rename_all = "camelCase")]
 pub fn read_project_file(folder: String, relative_path: String) -> Result<Vec<u8>, String> {
-    let path = if Path::new(&relative_path).is_absolute() {
-        PathBuf::from(relative_path)
-    } else {
-        PathBuf::from(folder).join(rel_to_path(&relative_path))
-    };
-    fs::read(&path).map_err(|e| format!("无法读取项目文件 {:?}: {}", path, e))
+    let path = project_path(&folder, &relative_path)?;
+    if let Ok(meta) = fs::metadata(&path) {
+        if meta.len() > MAX_PROJECT_FILE_BYTES {
+            return Err("Project file is too large to read safely".to_string());
+        }
+    }
+    fs::read(&path).map_err(|e| format!("Failed to read project file {:?}: {}", path, e))
 }
 
 #[command(rename_all = "camelCase")]
 pub fn write_project_png(folder: String, relative_path: String, base64: String) -> Result<bool, String> {
-    let bytes = general_purpose::STANDARD.decode(base64).map_err(|e| format!("PNG base64 无效：{}", e))?;
-    let path = PathBuf::from(folder).join(rel_to_path(&relative_path));
+    let bytes = general_purpose::STANDARD.decode(base64).map_err(|e| format!("Invalid PNG base64: {}", e))?;
+    if bytes.len() > MAX_PROJECT_PNG_BYTES {
+        return Err("PNG is too large to write safely".to_string());
+    }
+    if !bytes.starts_with(&[0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a]) {
+        return Err("Only PNG images may be written".to_string());
+    }
+    let path = project_path(&folder, &relative_path)?;
     ensure_parent(&path)?;
-    fs::write(path, bytes).map_err(|e| format!("无法写入 PNG：{}", e))?;
+    fs::write(path, bytes).map_err(|e| format!("Failed to write PNG: {}", e))?;
     Ok(true)
 }
 
 #[command(rename_all = "camelCase")]
 pub fn ensure_dir(path: String) -> Result<bool, String> {
-    fs::create_dir_all(path).map_err(|e| format!("无法创建目录：{}", e))?;
+    let path = PathBuf::from(path);
+    validate_project_owned_path(&path)?;
+    fs::create_dir_all(path).map_err(|e| format!("Failed to create directory: {}", e))?;
     Ok(true)
 }
 
@@ -293,17 +406,19 @@ pub fn temp_dir() -> Result<String, String> {
 
 #[command(rename_all = "camelCase")]
 pub fn show_folder(path: String) -> Result<(), String> {
+    let path = PathBuf::from(path);
+    validate_project_owned_path(&path)?;
     #[cfg(target_os = "windows")]
     {
-        Command::new("explorer").arg(path).spawn().map_err(|e| e.to_string())?;
+        Command::new("explorer").arg(&path).spawn().map_err(|e| e.to_string())?;
     }
     #[cfg(target_os = "macos")]
     {
-        Command::new("open").arg(path).spawn().map_err(|e| e.to_string())?;
+        Command::new("open").arg(&path).spawn().map_err(|e| e.to_string())?;
     }
     #[cfg(target_os = "linux")]
     {
-        Command::new("xdg-open").arg(path).spawn().map_err(|e| e.to_string())?;
+        Command::new("xdg-open").arg(&path).spawn().map_err(|e| e.to_string())?;
     }
     Ok(())
 }
@@ -311,11 +426,17 @@ pub fn show_folder(path: String) -> Result<(), String> {
 #[command(rename_all = "camelCase")]
 pub fn extract_frame(media_path: String, time_s: f64, out_png: String) -> ExtractFrameResult {
     let out = PathBuf::from(&out_png);
+    if let Err(e) = validate_project_owned_path(&out) {
+        return ExtractFrameResult { ok: false, error: Some(e), path: out_png };
+    }
     if let Err(e) = ensure_parent(&out) {
         return ExtractFrameResult { ok: false, error: Some(e), path: out_png };
     }
 
     let source = PathBuf::from(&media_path);
+    if let Err(e) = validate_project_owned_path(&source) {
+        return ExtractFrameResult { ok: false, error: Some(e), path: out_png };
+    }
     if !source.exists() {
         return ExtractFrameResult { ok: false, error: Some("源素材不存在".to_string()), path: out_png };
     }
@@ -347,7 +468,11 @@ pub fn extract_frame(media_path: String, time_s: f64, out_png: String) -> Extrac
 
 #[command(rename_all = "camelCase")]
 pub fn extract_range(media_path: String, start_s: f64, end_s: f64, mode: RangeMode, out_dir: String) -> ExtractRangeResult {
-    if let Err(e) = fs::create_dir_all(&out_dir) {
+    let out_root = PathBuf::from(&out_dir);
+    if let Err(e) = validate_project_owned_path(&out_root) {
+        return ExtractRangeResult { ok: false, error: Some(e), frames: vec![] };
+    }
+    if let Err(e) = fs::create_dir_all(&out_root) {
         return ExtractRangeResult { ok: false, error: Some(format!("无法创建抽帧目录：{}", e)), frames: vec![] };
     }
     let end = if end_s > start_s { end_s } else { start_s + 1.0 };
@@ -371,7 +496,7 @@ pub fn extract_range(media_path: String, start_s: f64, end_s: f64, mode: RangeMo
 
     let mut frames = Vec::new();
     for (i, time) in times.into_iter().enumerate() {
-        let path = PathBuf::from(&out_dir).join(format!("range-{}-{:03}.png", Uuid::new_v4(), i + 1));
+        let path = out_root.join(format!("range-{}-{:03}.png", Uuid::new_v4(), i + 1));
         let path_string = path.to_string_lossy().to_string();
         let result = extract_frame(media_path.clone(), time, path_string.clone());
         if result.ok {
@@ -405,6 +530,9 @@ pub fn export_board(input: ExportInput) -> ExportBoardResult {
 #[command(rename_all = "camelCase")]
 pub fn export_shotlist(input: ExportInput) -> ExportShotlistResult {
     let root = PathBuf::from(&input.exports_root);
+    if let Err(e) = validate_project_owned_path(&root) {
+        return ExportShotlistResult { ok: false, error: Some(e), csv_path: String::new() };
+    }
     if let Err(e) = fs::create_dir_all(&root) {
         return ExportShotlistResult { ok: false, error: Some(e.to_string()), csv_path: String::new() };
     }
@@ -439,6 +567,9 @@ pub fn export_shotlist(input: ExportInput) -> ExportShotlistResult {
 #[command(rename_all = "camelCase")]
 pub fn export_pdf(input: ExportInput) -> ExportPdfResult {
     let root = PathBuf::from(&input.exports_root);
+    if let Err(e) = validate_project_owned_path(&root) {
+        return ExportPdfResult { ok: false, error: Some(e), pdf_path: String::new() };
+    }
     if let Err(e) = fs::create_dir_all(&root) {
         return ExportPdfResult { ok: false, error: Some(e.to_string()), pdf_path: String::new() };
     }
@@ -457,6 +588,9 @@ pub fn export_pdf(input: ExportInput) -> ExportPdfResult {
 #[command(rename_all = "camelCase")]
 pub fn export_animatic(input: ExportInput, opts: AnimaticOptions) -> ExportAnimaticResult {
     let root = PathBuf::from(&input.exports_root);
+    if let Err(e) = validate_project_owned_path(&root) {
+        return ExportAnimaticResult { ok: false, error: Some(e), video_path: String::new(), audio_waveform_path: None };
+    }
     if let Err(e) = fs::create_dir_all(&root) {
         return ExportAnimaticResult { ok: false, error: Some(e.to_string()), video_path: String::new(), audio_waveform_path: None };
     }
@@ -589,7 +723,9 @@ fn export_animatic_inner(
 }
 
 fn export_board_inner(input: &ExportInput) -> Result<String, String> {
-    let package = PathBuf::from(&input.exports_root).join(format!("board-{}", export_stamp()));
+    let exports_root = PathBuf::from(&input.exports_root);
+    validate_project_owned_path(&exports_root)?;
+    let package = exports_root.join(format!("board-{}", export_stamp()));
     fs::create_dir_all(&package).map_err(|e| format!("无法创建导出目录：{}", e))?;
 
     for (i, frame) in input.frames.iter().enumerate() {
@@ -639,6 +775,7 @@ fn materialize_export_source(frame: &ExportFrameInput, work_dir: &Path, index: u
         return Ok(dest);
     }
     let path = PathBuf::from(source);
+    validate_project_owned_path(&path)?;
     if path.exists() {
         Ok(path)
     } else {
@@ -689,6 +826,7 @@ fn shot_index_label(frame: &ExportFrameInput, index: usize) -> String {
 
 fn validate_audio_track(audio: &str, root: &Path, stamp: &str, ffmpeg: &Path) -> Result<PathBuf, String> {
     let audio_path = PathBuf::from(audio);
+    validate_project_owned_path(&audio_path)?;
     if !audio_path.exists() {
         return Err(format!("临时声音轨不存在：{}", audio));
     }

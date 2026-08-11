@@ -23,23 +23,32 @@ struct McpServerHandle {
     child: tokio::process::Child,
 }
 
+fn validate_project_id(id: &str) -> Result<(), String> {
+    if id.is_empty() || id.len() > 128 {
+        return Err("Project id length is invalid".to_string());
+    }
+    if id == "." || id == ".." || id.contains("..") {
+        return Err("Project id cannot contain path traversal".to_string());
+    }
+    if !id.chars().all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_')) {
+        return Err("Project id contains unsupported characters".to_string());
+    }
+    Ok(())
+}
+
 fn get_servers() -> &'static Mutex<Option<HashMap<String, McpServerHandle>>> {
     &MCP_SERVERS
 }
 
-fn init_servers() {
-    let mut servers = get_servers().lock().unwrap();
-    if servers.is_none() {
-        *servers = Some(HashMap::new());
-    }
-}
 
 #[command]
 pub async fn start_mcp_server(project_id: String) -> Result<McpStatus, String> {
-    init_servers();
+    validate_project_id(&project_id)?;
 
     {
-        let servers = get_servers().lock().unwrap();
+        let servers = get_servers()
+            .lock()
+            .map_err(|_| "MCP server registry is unavailable".to_string())?;
         if let Some(ref servers) = *servers {
             if servers.contains_key(&project_id) {
                 return Ok(McpStatus {
@@ -88,10 +97,11 @@ pub async fn start_mcp_server(project_id: String) -> Result<McpStatus, String> {
     }
 
     {
-        let mut servers = get_servers().lock().unwrap();
-        if let Some(ref mut servers) = *servers {
-            servers.insert(project_id.clone(), McpServerHandle { child });
-        }
+        let mut servers = get_servers()
+            .lock()
+            .map_err(|_| "MCP server registry is unavailable".to_string())?;
+        let servers = servers.get_or_insert_with(HashMap::new);
+        servers.insert(project_id.clone(), McpServerHandle { child });
     }
 
     tracing::info!("Started MCP server for project {}", project_id);
@@ -105,10 +115,12 @@ pub async fn start_mcp_server(project_id: String) -> Result<McpStatus, String> {
 
 #[command]
 pub async fn stop_mcp_server(project_id: String) -> Result<(), String> {
-    init_servers();
+    validate_project_id(&project_id)?;
 
     let child = {
-        let mut servers = get_servers().lock().unwrap();
+        let mut servers = get_servers()
+            .lock()
+            .map_err(|_| "MCP server registry is unavailable".to_string())?;
         if let Some(ref mut servers) = *servers {
             servers.remove(&project_id).map(|h| h.child)
         } else {
@@ -126,12 +138,13 @@ pub async fn stop_mcp_server(project_id: String) -> Result<(), String> {
 
 #[command]
 pub fn get_mcp_status(project_id: Option<String>) -> Result<Vec<McpStatus>, String> {
-    init_servers();
-
-    let servers = get_servers().lock().unwrap();
+    let servers = get_servers()
+        .lock()
+        .map_err(|_| "MCP server registry is unavailable".to_string())?;
     let servers = servers.as_ref().ok_or("Servers not initialized")?;
 
     if let Some(id) = project_id {
+        validate_project_id(&id)?;
         let running = servers.contains_key(&id);
         return Ok(vec![McpStatus {
             running,

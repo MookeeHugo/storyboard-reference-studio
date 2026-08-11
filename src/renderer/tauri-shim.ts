@@ -6,7 +6,6 @@
 
 import { invoke } from '@tauri-apps/api/core'
 import { open, save } from '@tauri-apps/plugin-dialog'
-import { open as shellOpen } from '@tauri-apps/plugin-shell'
 import type {
   AnimaticOptions,
   ExportBoardInput,
@@ -178,14 +177,15 @@ class TauriSbrBridge implements SbrAPI {
     try {
       await invoke('show_folder', { path })
     } catch {
-      await shellOpen(path).catch(() => {})
+      // Native command validates project-owned paths; failures are non-fatal UI hints.
     }
   }
 
   async openExternal(url: string): Promise<boolean> {
     try {
-      if (this.available) await shellOpen(url)
-      else window.open(url, '_blank')
+      const parsed = new URL(url)
+      if (parsed.protocol !== 'https:') return false
+      window.open(parsed.toString(), '_blank', 'noopener,noreferrer')
       return true
     } catch {
       return false
