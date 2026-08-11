@@ -1891,7 +1891,7 @@ mod tests {
             return;
         }
 
-        let root = std::env::temp_dir().join(format!("sbr-pdf-test-{}", Uuid::new_v4()));
+        let root = std::env::temp_dir().join(format!("sbr-pdf-test-{}.sbref", Uuid::new_v4()));
         let exports = root.join("exports");
         fs::create_dir_all(&exports).unwrap();
 
@@ -1972,7 +1972,7 @@ mod tests {
             return;
         }
 
-        let root = std::env::temp_dir().join(format!("sbr-animatic-test-{}", Uuid::new_v4()));
+        let root = std::env::temp_dir().join(format!("sbr-animatic-test-{}.sbref", Uuid::new_v4()));
         let exports = root.join("exports");
         fs::create_dir_all(&exports).unwrap();
 

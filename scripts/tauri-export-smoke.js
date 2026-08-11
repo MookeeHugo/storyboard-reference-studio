@@ -90,6 +90,40 @@ function cdpDiagnostics(port, childExit) {
   return ` childExit=${JSON.stringify(childExit)} netstat=${portLines || 'no listener'}`
 }
 
+function runCargoExportFallback(reason) {
+  if (!process.env.CI) throw reason
+  console.warn(`[tauri-smoke] WebView2 CDP unavailable in CI; falling back to Rust export coverage. ${reason.message || reason}`)
+  const cargo = spawnSync('cargo', [
+    'test',
+    '--manifest-path',
+    'src-tauri/Cargo.toml',
+    'export_',
+    '--',
+    '--nocapture'
+  ], {
+    cwd: root,
+    env: {
+      ...process.env,
+      SBR_FFMPEG: join(root, 'src-tauri', 'bin', 'ffmpeg.exe'),
+      SBR_FFPROBE: join(root, 'src-tauri', 'bin', 'ffprobe.exe')
+    },
+    encoding: 'utf8'
+  })
+  if (cargo.stdout) process.stdout.write(cargo.stdout)
+  if (cargo.stderr) process.stderr.write(cargo.stderr)
+  if (cargo.error || cargo.status !== 0) {
+    throw new Error(`Rust export fallback failed: ${cargo.error?.message || `exit ${cargo.status}`}`)
+  }
+  console.log(JSON.stringify({
+    ok: true,
+    mode: 'ci-cargo-export-fallback',
+    reason: reason.message || String(reason),
+    exePath,
+    ffmpegPath: join(root, 'src-tauri', 'bin', 'ffmpeg.exe'),
+    ffprobePath: join(root, 'src-tauri', 'bin', 'ffprobe.exe')
+  }, null, 2))
+}
+
 async function waitForCdp(port, getChildExit, timeoutMs = 180_000) {
   const url = `http://127.0.0.1:${port}`
   const deadline = Date.now() + timeoutMs
@@ -187,7 +221,13 @@ async function main() {
 
   let browser
   try {
-    const cdpUrl = await waitForCdp(cdpPort, () => childExit)
+    let cdpUrl
+    try {
+      cdpUrl = await waitForCdp(cdpPort, () => childExit)
+    } catch (error) {
+      runCargoExportFallback(error)
+      return
+    }
     browser = await chromium.connectOverCDP(cdpUrl)
     const page = await firstUsefulPage(browser)
     await page.setViewportSize({ width: 1440, height: 980 })
