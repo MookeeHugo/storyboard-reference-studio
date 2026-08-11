@@ -869,12 +869,17 @@ fn copy_or_decode_source(source: &str, dest: &Path) -> Result<(), String> {
     ensure_parent(dest)?;
     if source.starts_with("data:") {
         let bytes = decode_data_url(source)?;
+        if bytes.len() > MAX_PROJECT_PNG_BYTES {
+            return Err("Embedded reference image is too large to export safely".to_string());
+        }
         match image::load_from_memory(&bytes) {
             Ok(img) => img.save(dest).map_err(|e| format!("无法写入参考图 PNG：{}", e)),
             Err(_) => write_placeholder_png(dest),
         }
     } else {
-        fs::copy(source, dest).map(|_| ()).map_err(|e| e.to_string())
+        let path = PathBuf::from(source);
+        validate_project_owned_path(&path)?;
+        fs::copy(path, dest).map(|_| ()).map_err(|e| e.to_string())
     }
 }
 
@@ -2044,5 +2049,43 @@ mod tests {
         assert_eq!(stream["height"].as_u64(), Some(1080));
         let duration = json["format"]["duration"].as_str().unwrap().parse::<f64>().unwrap();
         assert!(duration > 1.0 && duration < 1.8, "unexpected duration: {}", duration);
+    }
+
+    #[test]
+    fn export_board_rejects_non_project_source() {
+        let root = std::env::temp_dir().join(format!("sbr-board-test-{}.sbref", Uuid::new_v4()));
+        let exports = root.join("exports");
+        fs::create_dir_all(&exports).unwrap();
+
+        let outside = std::env::temp_dir().join(format!("sbr-outside-{}.png", Uuid::new_v4()));
+        image::RgbaImage::from_pixel(16, 16, image::Rgba([24, 64, 190, 255])).save(&outside).unwrap();
+
+        let out = export_board(ExportInput {
+            project_name: "越权源素材测试".to_string(),
+            exports_root: exports.to_string_lossy().to_string(),
+            pdf_options: None,
+            frames: vec![ExportFrameInput {
+                source_png: outside.to_string_lossy().to_string(),
+                label: "外部图片".to_string(),
+                notes: String::new(),
+                prompt_text: String::new(),
+                profile_id: "generic".to_string(),
+                crop: serde_json::json!(null),
+                source_width: 16,
+                source_height: 16,
+                time_s: 0.0,
+                media_name: "outside.png".to_string(),
+                duration_s: Some(1.0),
+                shot: None,
+                reference: None,
+                annotations: None,
+            }],
+        });
+
+        assert!(!out.ok, "export should reject sources outside the .sbref project");
+        assert!(
+            out.error.unwrap_or_default().contains(".sbref"),
+            "expected project-owned path error"
+        );
     }
 }
