@@ -1,6 +1,6 @@
 ﻿import { createServer } from 'node:net'
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import { execFileSync, spawn, spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright'
@@ -41,9 +41,59 @@ function killTree(child) {
   }
 }
 
-async function waitForCdp(port, getChildExit, timeoutMs = 120_000) {
+const webview2AdditionalArgsKey = 'HKCU\\Software\\Policies\\Microsoft\\Edge\\WebView2\\AdditionalBrowserArguments'
+
+function queryRegistryValue(name) {
+  if (process.platform !== 'win32') return null
+  const result = spawnSync('reg.exe', ['query', webview2AdditionalArgsKey, '/v', name], { encoding: 'utf8' })
+  if (result.status !== 0) return null
+  const line = result.stdout.split(/\r?\n/).find((item) => item.includes('REG_SZ'))
+  return line?.split('REG_SZ').slice(1).join('REG_SZ').trim() || ''
+}
+
+function setRegistryValue(name, value) {
+  const result = spawnSync('reg.exe', ['add', webview2AdditionalArgsKey, '/v', name, '/t', 'REG_SZ', '/d', value, '/f'], { encoding: 'utf8' })
+  if (result.status !== 0) {
+    throw new Error(`Unable to set WebView2 debug registry arguments: ${result.stderr || result.stdout}`)
+  }
+}
+
+function deleteRegistryValue(name) {
+  spawnSync('reg.exe', ['delete', webview2AdditionalArgsKey, '/v', name, '/f'], { stdio: 'ignore' })
+}
+
+function withWebView2DebugRegistry(additionalArgs) {
+  if (process.platform !== 'win32') return () => {}
+  const valueName = basename(exePath)
+  const previous = queryRegistryValue(valueName)
+  try {
+    setRegistryValue(valueName, additionalArgs)
+  } catch (error) {
+    console.warn(`[tauri-smoke] WebView2 registry debug arguments unavailable; using environment only. ${error.message || error}`)
+    return () => {}
+  }
+  return () => {
+    try {
+      if (previous === null) deleteRegistryValue(valueName)
+      else setRegistryValue(valueName, previous)
+    } catch {}
+  }
+}
+
+function cdpDiagnostics(port, childExit) {
+  if (process.platform !== 'win32') return ''
+  const netstat = spawnSync('netstat.exe', ['-ano', '-p', 'tcp'], { encoding: 'utf8' })
+  const portLines = (netstat.stdout || '')
+    .split(/\r?\n/)
+    .filter((line) => line.includes(`:${port}`))
+    .join('\n')
+  return ` childExit=${JSON.stringify(childExit)} netstat=${portLines || 'no listener'}`
+}
+
+async function waitForCdp(port, getChildExit, timeoutMs = 180_000) {
   const url = `http://127.0.0.1:${port}`
   const deadline = Date.now() + timeoutMs
+  let lastError = ''
   while (Date.now() < deadline) {
     const childExit = getChildExit?.()
     if (childExit) {
@@ -52,10 +102,12 @@ async function waitForCdp(port, getChildExit, timeoutMs = 120_000) {
     try {
       const res = await fetch(`${url}/json/version`)
       if (res.ok) return url
-    } catch {}
+    } catch (error) {
+      lastError = error?.message || String(error)
+    }
     await new Promise((resolveWait) => setTimeout(resolveWait, 500))
   }
-  throw new Error(`Timed out waiting for WebView2 CDP on ${url}`)
+  throw new Error(`Timed out waiting for WebView2 CDP on ${url}; lastError=${lastError};${cdpDiagnostics(port, getChildExit?.())}`)
 }
 
 async function firstUsefulPage(browser, timeoutMs = 45_000) {
@@ -113,9 +165,11 @@ async function main() {
   mkdirSync(webviewProfileDir, { recursive: true })
 
   const cdpPort = Number(process.env.SBR_TAURI_CDP_PORT || await findFreePort(9333))
-  const extraArgs = [process.env.WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS, `--remote-debugging-port=${cdpPort}`, '--remote-allow-origins=*']
+  const remoteDebuggingArgs = `--remote-debugging-port=${cdpPort} --remote-debugging-address=127.0.0.1`
+  const extraArgs = [process.env.WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS, remoteDebuggingArgs]
     .filter(Boolean)
     .join(' ')
+  const restoreWebView2Registry = withWebView2DebugRegistry(extraArgs)
   const env = {
     ...process.env,
     WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: extraArgs,
@@ -257,6 +311,7 @@ async function main() {
       child.once('exit', () => { clearTimeout(timer); resolveExit() })
     })
     try { rmSync(webviewProfileDir, { recursive: true, force: true }) } catch {}
+    restoreWebView2Registry()
     if (stderr.trim()) console.error(stderr.trim())
   }
 }
